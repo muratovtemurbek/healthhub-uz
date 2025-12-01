@@ -1,16 +1,16 @@
 // src/api/client.ts
 import axios from 'axios';
 
-// 🔧 Backend URL ni moslashuvchan qilamiz:
-//
 // 1) Agar VITE_API_URL berilgan bo'lsa – o'shani olamiz
 // 2) Aks holda, agar frontend localhost'da bo'lsa – http://localhost:8000
-// 3) Aks holda (Render, prod) – window.location.origin (masalan https://healthhub-uz-1.onrender.com)
+// 3) Aks holda (Render, prod) – window.location.origin
 const API_BASE_URL =
   (import.meta as any).env?.VITE_API_URL ||
   (window.location.hostname === 'localhost'
     ? 'http://localhost:8000'
     : window.location.origin);
+
+console.log('🌐 API_BASE_URL =', API_BASE_URL);
 
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -25,6 +25,8 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access');
     if (token) {
+      // headers null bo'lsa ham xato bermasin
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     console.log('📤 API Request:', config.method?.toUpperCase(), config.url);
@@ -43,7 +45,11 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('📥 Response error:', error.response?.status, error.config?.url);
+    console.error(
+      '📥 Response error:',
+      error.code || error.response?.status,
+      error.config?.url
+    );
 
     if (error.response?.status === 401) {
       console.log('🔒 Token expired, clearing storage');
