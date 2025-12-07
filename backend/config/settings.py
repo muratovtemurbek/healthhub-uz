@@ -219,9 +219,14 @@ if IS_PRODUCTION:
         "https://*.railway.app",
         "https://*.up.railway.app",
         "https://*.vercel.app",
+        "https://healthhub-uz-production.up.railway.app",
     ]
     if FRONTEND_URL and FRONTEND_URL.startswith('https'):
         CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+    # Railway public domain
+    RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+    if RAILWAY_PUBLIC_DOMAIN:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
 
 # Channels (WebSocket)
 CHANNEL_LAYERS = {

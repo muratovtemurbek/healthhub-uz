@@ -1,12 +1,11 @@
 API_BASE_URL = https://healthhub-uz-production.up.railway.app
-index-wgLFk3ML.js:16 📤 API Request: GET /api/accounts/profile/
-index-wgLFk3ML.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
+index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/profile/
+index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
 overrideMethod @ hook.js:608
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/dashboard/widgets/
 overrideMethod @ hook.js:608
-index-wgLFk3ML.js:16 📤 API Request: POST /api/ai/consultations/analyze/
+index-DJoX9Owl.js:16 📤 API Request: POST /api/ai/consultations/analyze/
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/ai/consultations/analyze/
 overrideMethod @ hook.js:608
-hook.js:608 AI Error: Aa
-overrideMethod @ hook.js:608
+hook.js:608 AI Error: 
