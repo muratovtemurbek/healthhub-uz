@@ -1,7 +1,4 @@
-Страница недоступна
-Сервер healthhub-uz-production.up.railway.app перенаправил ваш запрос слишком много раз.
-
-Попробуйте удалить файлы cookie.
-
-Перезагрузить
-Код ошибки: ERR_TOO_MANY_REDIRECTS
+Refused to apply style from 'https://healthhub-uz-production.up.railway.app/assets/index-9z0d4ID0.css' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled.
+index-j4BQuxa7.js:1 Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html". Strict MIME type checking is enforced for module scripts per HTML spec.
+(индекс):1  Failed to load resource: the server responded with a status of 404 ()
+(индекс):1 Refused to apply style from 'https://healthhub-uz-production.up.railway.app/assets/index-9z0d4ID0.css' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled.
