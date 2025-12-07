@@ -1,21 +1,12 @@
- API Request: POST /auth/register/
-hook.js:608 📥 Response error: ERR_BAD_REQUEST /auth/register/
+API_BASE_URL = https://healthhub-uz-production.up.railway.app
+index-wgLFk3ML.js:16 📤 API Request: GET /api/accounts/profile/
+index-wgLFk3ML.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
 overrideMethod @ hook.js:608
-(anonymous) @ index-C05Hq_4q.js:16
-Promise.then
-_request @ index-C05Hq_4q.js:16
-request @ index-C05Hq_4q.js:15
-(anonymous) @ index-C05Hq_4q.js:16
-(anonymous) @ index-C05Hq_4q.js:11
-E @ index-C05Hq_4q.js:16
-yd @ index-C05Hq_4q.js:8
-(anonymous) @ index-C05Hq_4q.js:8
-hn @ index-C05Hq_4q.js:8
-wd @ index-C05Hq_4q.js:8
-up @ index-C05Hq_4q.js:9
-cp @ index-C05Hq_4q.js:9
-hook.js:608 Register error: ja {message: 'Request failed with status code 403', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}PI Request: POST /ai/consultations/analyze/
-hook.js:608 📥 Response error: ERR_BAD_REQUEST /ai/consultations/analyze/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/dashboard/widgets/
 overrideMethod @ hook.js:608
-hook.js:608 AI Error: jacode: "ERR_BAD_REQUEST"config: {transitional: {…}, adapter: Array(3), transformRequest: Array(1), transformResponse: Array(1), timeout: 10000, …}message: "Request failed with status code 403"name: "AxiosError"request: XMLHttpRequest {onreadystatechange: null, readyState: 4, timeout: 10000, withCredentials: false, upload: XMLHttpRequestUpload, …}response: {data: '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta ht…AILURE_VIEW setting.</p>\n</div>\n\n</body>\n</html>\n', status: 403, statusText: '', headers: bo, config: {…}, …}status: 403stack: "AxiosError: Request failed with status code 403\n    at Eo (https://healthhub-uz-production.up.railway.app/assets/index-C05Hq_4q.js:13:1085)\n    at XMLHttpRequest.g (https://healthhub-uz-production.up.railway.app/assets/index-C05Hq_4q.js:13:5604)\n    at _s.request (https://healthhub-uz-production.up.railway.app/assets/index-C05Hq_4q.js:15:1999)\n    at async c (https://healthhub-uz-production.up.railway.app/assets/index-C05Hq_4q.js:16:224751)"[[Prototype]]: Error
+index-wgLFk3ML.js:16 📤 API Request: POST /api/ai/consultations/analyze/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/ai/consultations/analyze/
+overrideMethod @ hook.js:608
+hook.js:608 AI Error: Aa
 overrideMethod @ hook.js:608

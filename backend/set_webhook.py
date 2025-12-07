@@ -17,8 +17,8 @@ BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_URL = os.getenv('RAILWAY_PUBLIC_DOMAIN', 'healthhub-uz-production.up.railway.app')
 
 if not BOT_TOKEN:
-    print("TELEGRAM_BOT_TOKEN sozlanmagan!")
-    sys.exit(1)
+    print("TELEGRAM_BOT_TOKEN sozlanmagan! Webhook o'rnatilmaydi.")
+    sys.exit(0)  # Server ishga tushsin, faqat webhook ishlamaydi
 
 # Webhook URL
 webhook_url = f"https://{WEBHOOK_URL}/api/telegram/webhook/"

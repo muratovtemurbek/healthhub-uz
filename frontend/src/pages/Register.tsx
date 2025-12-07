@@ -22,7 +22,7 @@ export default function Register() {
   const [showModal, setShowModal] = useState(false);
   const [code, setCode] = useState(['', '', '', '', '']);
   const [userId, setUserId] = useState('');
-  const [botUsername, setBotUsername] = useState('healthhub_uz_bot');
+  const [botUsername, setBotUsername] = useState('healthubuz_bot');
 
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
