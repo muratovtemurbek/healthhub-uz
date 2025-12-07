@@ -1,0 +1,5 @@
+
+RUN  cd backend && pip install -r requirements.txt
+200ms
+/bin/bash: line 1: pip: command not found
+Build Failed: build daemon returned an error < failed to solve: process "/bin/bash -ol pipefail -c cd backend && pip install -r requirements.txt" did not complete successfully: exit code: 127 >
