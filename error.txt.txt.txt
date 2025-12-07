@@ -1,50 +1,10 @@
-You reached the start of the range
-Dec 7, 2025, 5:05 PM
-scheduling build on Metal builder "builder-poeuce"
-fetched snapshot sha256:2e35ab325f4868ac7a759419c4787c02ed315bf393b3250a457b6f1af6c95f84 (2.1 MB bytes)
-fetching snapshot
-2 MB
-113ms
-unpacking archive
-7.3 MB
-163ms
-using build driver railpack-v0.15.1
-                   
-╭─────────────────╮
-│ Railpack 0.15.1 │
-╰─────────────────╯
- 
-  ⚠ Script start.sh not found
-  ✖ Railpack could not determine how to build the app.
-  
-  The following languages are supported:
-  - Php
-  - Golang
-  - Java
-  - Rust
-  - Ruby
-  - Elixir
-  - Python
-  - Deno
-  - Dotnet
-  - Node
-  - Gleam
-  - Cpp
-  - Staticfile
-  - Shell
-  
-  The app contents that Railpack analyzed contains:
-  
-  ./
-  ├── .claude/
-  ├── .idea/
-  ├── backend/
-  ├── frontend/
-  ├── .gitignore
-  ├── README.md
-  └── error.txt.txt
-  
-  Check out the docs for more information: https://railpack.com
- 
- 
-railpack process exited with an error
+frontend-builder
+RUN npm run build
+7s
+> frontend@0.0.0 build
+> tsc -b && vite build
+src/api/client.ts(24,7): error TS2322: Type 'AxiosRequestHeaders | {}' is not assignable to type 'AxiosRequestHeaders'.
+
+  Type '{}' is not assignable to type 'AxiosRequestHeaders'.
+    Type '{}' is missing the following properties from type 'AxiosHeaders': set, get, has, delete, and 24 more.
+Build Failed: build daemon returned an error < failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 1 >

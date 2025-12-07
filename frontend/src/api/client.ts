@@ -21,7 +21,6 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access');
     if (token) {
-      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     console.log('📤 API Request:', config.method?.toUpperCase(), config.url);
