@@ -1,14 +1,22 @@
 # Stage 1: Build Frontend
-# Cache bust: v3 - force rebuild
 FROM node:20-alpine AS frontend-builder
+
+# Cache bust timestamp: 2024-12-07-v4
+ARG CACHEBUST=1
 
 WORKDIR /frontend
 
-# Copy ALL frontend files first to bust cache
+# Copy package files
+COPY frontend/package*.json ./
+
+# Clean install
+RUN rm -rf node_modules package-lock.json && npm install
+
+# Copy source files
 COPY frontend/ .
 
-# Install and build
-RUN npm install && npm run build && ls -la dist/
+# Build with timestamp
+RUN echo "Build time: $(date)" > build-info.txt && npm run build && cat dist/index.html
 
 # Stage 2: Python Backend
 FROM python:3.11-slim

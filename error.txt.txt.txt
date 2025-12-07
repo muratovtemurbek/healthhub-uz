@@ -1,3 +1,3 @@
+ API_BASE_URL = http://localhost:8000/api
+index-4g3JijF2.js:16 📤 API Request: POST /api/auth/login/
 hook.js:608 📥 Response error: ERR_NETWORK /api/auth/login/
-overrideMethod @ hook.js:608
-localhost:8000/api/api/auth/login/:1  Failed to load resource: net::ERR_CONNECTION_REFUSED
