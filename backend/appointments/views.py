@@ -1,227 +1,331 @@
 # appointments/views.py
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import Appointment
-from .serializers import AppointmentSerializer
-from doctors.models import Doctor
+
+from .models import Appointment, Prescription, MedicalRecord, Allergy, ChronicCondition
+from .serializers import (
+    AppointmentSerializer, AppointmentCreateSerializer,
+    PrescriptionSerializer, PrescriptionCreateSerializer,
+    MedicalRecordSerializer, MedicalRecordCreateSerializer,
+    AllergySerializer, ChronicConditionSerializer
+)
 
 
+# ============== APPOINTMENT VIEWSET ==============
 class AppointmentViewSet(viewsets.ModelViewSet):
-    """Navbatlar CRUD"""
     serializer_class = AppointmentSerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated:
-            if hasattr(user, 'user_type'):
-                if user.user_type == 'doctor':
-                    return Appointment.objects.filter(doctor__user=user)
-                elif user.user_type == 'patient':
-                    return Appointment.objects.filter(patient=user)
-        return Appointment.objects.all()
+        queryset = Appointment.objects.all()
 
-    def list(self, request, *args, **kwargs):
-        """Navbatlar ro'yxati"""
-        queryset = self.get_queryset().order_by('-date', '-time')
-        data = []
-        for apt in queryset:
-            data.append({
-                'id': str(apt.id),
-                'doctor_id': str(apt.doctor.id) if apt.doctor else None,
-                'doctor_name': f"{apt.doctor.user.first_name} {apt.doctor.user.last_name}".strip() if apt.doctor and apt.doctor.user else "N/A",
-                'specialization_name': apt.doctor.specialization.name_uz if apt.doctor and apt.doctor.specialization else "N/A",
-                'hospital_name': apt.doctor.hospital.name if apt.doctor and apt.doctor.hospital else "N/A",
-                'patient_id': str(apt.patient.id) if apt.patient else None,
-                'patient_name': f"{apt.patient.first_name} {apt.patient.last_name}".strip() if apt.patient else "N/A",
-                'date': str(apt.date) if apt.date else None,
-                'time': str(apt.time)[:5] if apt.time else None,
-                'status': apt.status,
-                'status_display': self._get_status_display(apt.status),
-                'symptoms': apt.symptoms if hasattr(apt, 'symptoms') else '',
-                'notes': apt.notes if hasattr(apt, 'notes') else '',
-                'created_at': apt.created_at.isoformat() if apt.created_at else None,
-            })
-        return Response(data)
+        # Filter by date
+        date = self.request.query_params.get('date')
+        if date:
+            queryset = queryset.filter(date=date)
+
+        # Filter by status
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        # Filter by doctor
+        doctor_id = self.request.query_params.get('doctor')
+        if doctor_id:
+            queryset = queryset.filter(doctor_id=doctor_id)
+
+        # Filter by patient
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+
+        return queryset.order_by('date', 'time')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AppointmentCreateSerializer
+        return AppointmentSerializer
 
     def create(self, request, *args, **kwargs):
-        """Yangi navbat yaratish"""
-        data = request.data
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
 
-        try:
-            doctor_id = data.get('doctor_id') or data.get('doctor')
-            if not doctor_id:
-                return Response({'error': 'Shifokor tanlanmagan'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                doctor = Doctor.objects.get(id=doctor_id)
-            except Doctor.DoesNotExist:
-                return Response({'error': 'Shifokor topilmadi'}, status=status.HTTP_404_NOT_FOUND)
-
-            # Patient
-            patient = None
-            if request.user.is_authenticated:
-                patient = request.user
-            else:
-                patient_id = data.get('patient_id')
-                if patient_id:
-                    from accounts.models import User
-                    try:
-                        patient = User.objects.get(id=patient_id)
-                    except:
-                        pass
-
-            # Date and time
-            date = data.get('date')
-            time = data.get('time')
-
-            if not date or not time:
-                return Response({'error': 'Sana va vaqt kiritilishi shart'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check if slot is available
-            existing = Appointment.objects.filter(
-                doctor=doctor,
-                date=date,
-                time=time,
-                status__in=['scheduled', 'confirmed']
-            ).exists()
-
-            if existing:
-                return Response({'error': 'Bu vaqt band'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Create appointment
-            appointment = Appointment.objects.create(
-                doctor=doctor,
-                patient=patient,
-                date=date,
-                time=time,
-                status='scheduled',
-                symptoms=data.get('symptoms', ''),
-                notes=data.get('notes', ''),
-            )
-
-            return Response({
-                'id': str(appointment.id),
-                'message': 'Navbat muvaffaqiyatli yaratildi!',
-                'date': str(appointment.date),
-                'time': str(appointment.time)[:5],
-                'doctor_name': f"{doctor.user.first_name} {doctor.user.last_name}".strip() if doctor.user else "Shifokor",
-            }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def update(self, request, *args, **kwargs):
-        """Navbatni yangilash"""
-        appointment = self.get_object()
-        data = request.data
-
-        try:
-            if 'status' in data:
-                appointment.status = data['status']
-            if 'date' in data:
-                appointment.date = data['date']
-            if 'time' in data:
-                appointment.time = data['time']
-            if 'symptoms' in data:
-                appointment.symptoms = data['symptoms']
-            if 'notes' in data:
-                appointment.notes = data['notes']
-
-            appointment.save()
-            return Response({'message': 'Navbat yangilandi!'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def partial_update(self, request, *args, **kwargs):
-        return self.update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        """Navbatni bekor qilish"""
-        try:
-            appointment = self.get_object()
-            appointment.status = 'cancelled'
-            appointment.save()
-            return Response({'message': 'Navbat bekor qilindi!'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'])
-    def my_appointments(self, request):
-        """Foydalanuvchining navbatlari"""
-        if not request.user.is_authenticated:
-            return Response({'error': 'Login qiling'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        appointments = Appointment.objects.filter(patient=request.user).order_by('-date', '-time')
-        return self.list(request)
-
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        """Navbatni bekor qilish"""
-        appointment = self.get_object()
-        appointment.status = 'cancelled'
-        appointment.save()
-        return Response({'message': 'Navbat bekor qilindi!'})
+        # Return full serializer
+        appointment = serializer.instance
+        return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def confirm(self, request, pk=None):
-        """Navbatni tasdiqlash"""
         appointment = self.get_object()
         appointment.status = 'confirmed'
         appointment.save()
-        return Response({'message': 'Navbat tasdiqlandi!'})
+        return Response(AppointmentSerializer(appointment).data)
 
-    def _get_status_display(self, status_val):
-        statuses = {
-            'scheduled': 'Rejalashtirilgan',
-            'confirmed': 'Tasdiqlangan',
-            'completed': 'Yakunlangan',
-            'cancelled': 'Bekor qilingan',
-            'no_show': 'Kelmadi'
-        }
-        return statuses.get(status_val, status_val)
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        appointment = self.get_object()
+        appointment.status = 'cancelled'
+        appointment.save()
+        return Response(AppointmentSerializer(appointment).data)
 
+    @action(detail=True, methods=['post'])
+    def complete(self, request, pk=None):
+        appointment = self.get_object()
+        appointment.status = 'completed'
+        if 'notes' in request.data:
+            appointment.notes = request.data['notes']
+        appointment.save()
+        return Response(AppointmentSerializer(appointment).data)
 
-# ==================== CLASS TASHQARISIDA ====================
 
 @api_view(['PATCH', 'PUT'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def appointment_update(request, pk):
-    """Qabulni yangilash"""
+    """Appointment status yangilash"""
     try:
-        appointment = Appointment.objects.get(id=pk)
+        appointment = Appointment.objects.get(pk=pk)
     except Appointment.DoesNotExist:
-        return Response({'error': 'Qabul topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Appointment topilmadi'}, status=status.HTTP_404_NOT_FOUND)
 
-    user = request.user
-    is_doctor = hasattr(user, 'user_type') and user.user_type == 'doctor'
-    is_patient = appointment.patient == user
-    is_admin = hasattr(user, 'user_type') and user.user_type == 'admin'
-
-    if not (is_doctor or is_patient or is_admin or user.is_staff):
-        return Response({'error': 'Ruxsat yoq'}, status=status.HTTP_403_FORBIDDEN)
-
-    data = request.data
-
-    if 'status' in data:
-        appointment.status = data['status']
-    if 'symptoms' in data:
-        appointment.symptoms = data['symptoms']
-    if 'notes' in data:
-        appointment.notes = data['notes']
-    if 'date' in data:
-        appointment.date = data['date']
-    if 'time' in data:
-        appointment.time = data['time']
+    if 'status' in request.data:
+        appointment.status = request.data['status']
+    if 'notes' in request.data:
+        appointment.notes = request.data['notes']
+    if 'is_paid' in request.data:
+        appointment.is_paid = request.data['is_paid']
 
     appointment.save()
+    return Response(AppointmentSerializer(appointment).data)
 
-    return Response({
-        'success': True,
-        'id': str(appointment.id),
-        'status': appointment.status,
-        'message': 'Qabul yangilandi'
-    })
+
+# ============== PRESCRIPTION VIEWSET ==============
+class PrescriptionViewSet(viewsets.ModelViewSet):
+    serializer_class = PrescriptionSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return Prescription.objects.all().order_by('-created_at')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return PrescriptionCreateSerializer
+        return PrescriptionSerializer
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def my_prescriptions(request):
+    if request.user.is_authenticated:
+        prescriptions = Prescription.objects.filter(patient=request.user).order_by('-created_at')
+    else:
+        prescriptions = Prescription.objects.none()
+    return Response(PrescriptionSerializer(prescriptions, many=True).data)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_prescription(request):
+    serializer = PrescriptionCreateSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============== MEDICAL RECORD VIEWSET ==============
+class MedicalRecordViewSet(viewsets.ModelViewSet):
+    serializer_class = MedicalRecordSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return MedicalRecord.objects.all().order_by('-record_date')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return MedicalRecordCreateSerializer
+        return MedicalRecordSerializer
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def my_medical_records(request):
+    if request.user.is_authenticated:
+        records = MedicalRecord.objects.filter(patient=request.user).order_by('-record_date')
+    else:
+        records = MedicalRecord.objects.none()
+    return Response(MedicalRecordSerializer(records, many=True).data)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_medical_record(request):
+    serializer = MedicalRecordCreateSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============== ALLERGY & CHRONIC CONDITIONS ==============
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def my_allergies(request):
+    if request.method == 'GET':
+        if request.user.is_authenticated:
+            allergies = Allergy.objects.filter(patient=request.user, is_active=True)
+        else:
+            allergies = Allergy.objects.none()
+        return Response(AllergySerializer(allergies, many=True).data)
+
+    elif request.method == 'POST':
+        data = request.data.copy()
+        if request.user.is_authenticated:
+            data['patient'] = request.user.id
+        serializer = AllergySerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def my_chronic_conditions(request):
+    if request.method == 'GET':
+        if request.user.is_authenticated:
+            conditions = ChronicCondition.objects.filter(patient=request.user, is_active=True)
+        else:
+            conditions = ChronicCondition.objects.none()
+        return Response(ChronicConditionSerializer(conditions, many=True).data)
+
+    elif request.method == 'POST':
+        data = request.data.copy()
+        if request.user.is_authenticated:
+            data['patient'] = request.user.id
+        serializer = ChronicConditionSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============== MEDICAL HISTORY ==============
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def my_medical_history(request):
+    if not request.user.is_authenticated:
+        return Response({'error': 'Avtorizatsiya talab qilinadi'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    user = request.user
+
+    data = {
+        'prescriptions': PrescriptionSerializer(
+            Prescription.objects.filter(patient=user).order_by('-created_at')[:20], many=True
+        ).data,
+        'medical_records': MedicalRecordSerializer(
+            MedicalRecord.objects.filter(patient=user).order_by('-record_date')[:20], many=True
+        ).data,
+        'allergies': AllergySerializer(
+            Allergy.objects.filter(patient=user, is_active=True), many=True
+        ).data,
+        'chronic_conditions': ChronicConditionSerializer(
+            ChronicCondition.objects.filter(patient=user, is_active=True), many=True
+        ).data,
+        'recent_appointments': AppointmentSerializer(
+            Appointment.objects.filter(patient=user).order_by('-date')[:10], many=True
+        ).data,
+        'summary': {
+            'total_prescriptions': Prescription.objects.filter(patient=user).count(),
+            'total_records': MedicalRecord.objects.filter(patient=user).count(),
+            'active_allergies': Allergy.objects.filter(patient=user, is_active=True).count(),
+            'chronic_conditions': ChronicCondition.objects.filter(patient=user, is_active=True).count(),
+            'total_appointments': Appointment.objects.filter(patient=user).count(),
+            'completed_appointments': Appointment.objects.filter(patient=user, status='completed').count(),
+        }
+    }
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def patient_medical_history(request, patient_id):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    try:
+        patient = User.objects.get(pk=patient_id)
+    except User.DoesNotExist:
+        return Response({'error': 'Bemor topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = {
+        'patient': {
+            'id': str(patient.id),
+            'name': patient.get_full_name(),
+            'email': patient.email,
+        },
+        'prescriptions': PrescriptionSerializer(
+            Prescription.objects.filter(patient=patient).order_by('-created_at')[:20], many=True
+        ).data,
+        'medical_records': MedicalRecordSerializer(
+            MedicalRecord.objects.filter(patient=patient).order_by('-record_date')[:20], many=True
+        ).data,
+        'allergies': AllergySerializer(
+            Allergy.objects.filter(patient=patient, is_active=True), many=True
+        ).data,
+        'chronic_conditions': ChronicConditionSerializer(
+            ChronicCondition.objects.filter(patient=patient, is_active=True), many=True
+        ).data,
+        'recent_appointments': AppointmentSerializer(
+            Appointment.objects.filter(patient=patient).order_by('-date')[:10], many=True
+        ).data,
+    }
+
+    return Response(data)
+
+
+# ============== DOCTOR APPOINTMENTS ==============
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def doctor_appointments(request):
+    date = request.query_params.get('date', timezone.now().date().isoformat())
+    appointments = Appointment.objects.filter(date=date).order_by('time')
+    return Response(AppointmentSerializer(appointments, many=True).data)
+
+
+# ============== AVAILABLE SLOTS ==============
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def available_slots(request, doctor_id):
+    from doctors.models import Doctor
+
+    date = request.query_params.get('date', timezone.now().date().isoformat())
+
+    try:
+        doctor = Doctor.objects.get(pk=doctor_id)
+    except Doctor.DoesNotExist:
+        return Response({'error': 'Shifokor topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    booked_times = Appointment.objects.filter(
+        doctor=doctor,
+        date=date,
+        status__in=['pending', 'confirmed']
+    ).values_list('time', flat=True)
+
+    booked_times_str = [t.strftime('%H:%M') for t in booked_times]
+
+    slots = []
+    for hour in range(9, 18):
+        for minute in [0, 30]:
+            time_str = f'{hour:02d}:{minute:02d}'
+            slots.append({
+                'time': time_str,
+                'available': time_str not in booked_times_str
+            })
+
+    return Response(slots)

@@ -1,21 +1,20 @@
 // src/api/client.ts
 import axios from 'axios';
 
-// Backend URL:
-// - productionda: window.location.origin (ya'ni https://healthhub-uz-1.onrender.com)
-// - agar xohlasang, .env orqali ham berish mumkin
-const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_URL || window.location.origin;
+// Development uchun localhost, production uchun Render
+const API_BASE_URL = import.meta.env.DEV
+  ? 'http://localhost:8000/api'
+  : (import.meta.env.VITE_API_URL || window.location.origin + '/api');
 
 const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 seconds
+  timeout: 10000,
 });
 
-// Request interceptor - har bir so'rovga token qo'shish
+// Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access');
@@ -31,7 +30,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - xatolarni boshqarish
+// Response interceptor
 apiClient.interceptors.response.use(
   (response) => {
     console.log('📥 API Response:', response.status, response.config.url);

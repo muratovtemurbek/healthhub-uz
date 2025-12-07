@@ -64,6 +64,10 @@ INSTALLED_APPS = [
     'notifications',
     'telegram_bot',
     'payments',
+    'chat',
+    'air_quality',
+    #'hospitals',
+'admin_panel',
 ]
 
 MIDDLEWARE = [
@@ -289,8 +293,8 @@ if IS_PRODUCTION:
     SECURE_HSTS_PRELOAD = True
 
 # Telegram Bot
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8413898003:AAEtG7KFl-yfV7ml5eDkEjJMrHj0YrJwBzw')
-TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME', 'healthubuz_bot')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME', '')
 
 # Payment sozlamalari
 PAYME_MERCHANT_ID = os.getenv('PAYME_MERCHANT_ID', 'your_payme_merchant_id')
@@ -300,3 +304,4 @@ PAYME_TEST_MODE = os.getenv('PAYME_TEST_MODE', 'True').lower() == 'true'
 CLICK_MERCHANT_ID = os.getenv('CLICK_MERCHANT_ID', 'your_click_merchant_id')
 CLICK_SERVICE_ID = os.getenv('CLICK_SERVICE_ID', 'your_click_service_id')
 CLICK_SECRET_KEY = os.getenv('CLICK_SECRET_KEY', 'your_click_secret_key')
+IQAIR_API_KEY = os.getenv('IQAIR_API_KEY', '')

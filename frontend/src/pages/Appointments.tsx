@@ -4,8 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, Clock, User, MapPin,
   CheckCircle, XCircle, AlertCircle, Loader2,
-  Phone, MessageSquare, CreditCard, Filter,
-  ChevronRight
+  CreditCard
 } from 'lucide-react';
 import apiClient from '../api/client';
 
@@ -26,6 +25,15 @@ interface Appointment {
   created_at: string;
 }
 
+// API response ni array ga aylantirish
+const parseApiResponse = (data: any): Appointment[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.results && Array.isArray(data.results)) return data.results;
+  if (typeof data === 'object') return [data];
+  return [];
+};
+
 export default function Appointments() {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -38,10 +46,14 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
+      // ✅ TO'G'RI endpoint
       const response = await apiClient.get('/api/appointments/');
-      setAppointments(response.data);
+      console.log('Appointments response:', response.data);
+      const data = parseApiResponse(response.data);
+      setAppointments(data);
     } catch (err) {
       console.error('Fetch appointments error:', err);
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
@@ -67,16 +79,18 @@ export default function Appointments() {
     }
   };
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-700';
-      case 'pending': return 'bg-orange-100 text-orange-700';
-      case 'failed': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
+  const getStatusDisplay = (status: string) => {
+    const displays: Record<string, string> = {
+      pending: 'Kutilmoqda',
+      confirmed: 'Tasdiqlangan',
+      completed: 'Yakunlangan',
+      cancelled: 'Bekor qilingan',
+    };
+    return displays[status] || status;
   };
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('uz-UZ', {
       weekday: 'long',
       year: 'numeric',
@@ -85,7 +99,7 @@ export default function Appointments() {
     });
   };
 
-  const filteredAppointments = appointments.filter(apt => {
+  const filteredAppointments = (appointments || []).filter(apt => {
     if (filter === 'all') return true;
     if (filter === 'upcoming') return ['pending', 'confirmed'].includes(apt.status);
     if (filter === 'completed') return apt.status === 'completed';
@@ -130,7 +144,7 @@ export default function Appointments() {
             { key: 'cancelled', label: 'Bekor qilingan' }
           ].map((tab) => (
             <button
-              key={tab.key}
+              key={`filter-${tab.key}`}
               onClick={() => setFilter(tab.key as any)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                 filter === tab.key
@@ -158,8 +172,8 @@ export default function Appointments() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredAppointments.map((apt) => (
-              <div key={apt.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {filteredAppointments.map((apt, index) => (
+              <div key={`apt-${apt.id}-${index}`} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 {/* Main Content */}
                 <div className="p-4">
                   <div className="flex items-start justify-between">
@@ -172,8 +186,12 @@ export default function Appointments() {
                         )}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{apt.doctor_name}</h3>
-                        <p className="text-sm text-blue-600">{apt.doctor_specialty}</p>
+                        <h3 className="font-semibold text-gray-900">
+                          {apt.doctor_name || 'Shifokor'}
+                        </h3>
+                        <p className="text-sm text-blue-600">
+                          {apt.doctor_specialty || 'Mutaxassis'}
+                        </p>
                         <div className="flex items-center text-sm text-gray-500 mt-1">
                           <MapPin className="h-4 w-4 mr-1" />
                           {apt.hospital_name || 'Klinika'}
@@ -184,7 +202,7 @@ export default function Appointments() {
                     {/* Status Badge */}
                     <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${getStatusColor(apt.status)}`}>
                       {getStatusIcon(apt.status)}
-                      <span>{apt.status_display}</span>
+                      <span>{apt.status_display || getStatusDisplay(apt.status)}</span>
                     </span>
                   </div>
 
@@ -196,7 +214,7 @@ export default function Appointments() {
                     </div>
                     <div className="flex items-center text-gray-600">
                       <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                      {apt.time}
+                      {apt.time || '00:00'}
                     </div>
                   </div>
 
@@ -215,23 +233,23 @@ export default function Appointments() {
                     <div className="text-sm">
                       <span className="text-gray-500">Narxi: </span>
                       <span className="font-semibold text-gray-900">
-                        {(apt.price || 150000).toLocaleString()} UZS
+                        {Number(apt.price || 150000).toLocaleString()} UZS
                       </span>
                     </div>
 
                     {/* Payment Status & Action */}
                     {apt.payment_status === 'pending' && apt.status !== 'cancelled' ? (
                       <Link
-                        to={`/payment?amount=${apt.price || 150000}&appointment_id=${apt.id}&doctor=${encodeURIComponent(apt.doctor_name)}&service=Konsultatsiya`}
+                        to={`/payment?amount=${apt.price || 150000}&appointment_id=${apt.id}&doctor=${encodeURIComponent(apt.doctor_name || 'Shifokor')}&service=Konsultatsiya`}
                         className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
                       >
                         <CreditCard className="h-4 w-4 mr-2" />
-                        Tolov qilish
+                        To'lov qilish
                       </Link>
                     ) : apt.payment_status === 'paid' ? (
                       <span className="flex items-center px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Tolangan
+                        To'langan
                       </span>
                     ) : apt.status === 'cancelled' ? (
                       <span className="flex items-center px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium">

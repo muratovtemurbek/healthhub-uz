@@ -10,7 +10,7 @@ from .models import TelegramVerification, TelegramNotification
 import requests
 
 TELEGRAM_BOT_TOKEN = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_BOT_USERNAME = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'healthhub_uz_bot')
+TELEGRAM_BOT_USERNAME = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'healthhubuz_bot')
 CODE_EXPIRY_SECONDS = 70
 
 

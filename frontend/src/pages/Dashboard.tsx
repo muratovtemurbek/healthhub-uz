@@ -1,572 +1,484 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
-  Heart, Calendar, Clock, User, Activity, Bell,
-  Pill, CreditCard, ChevronRight, Stethoscope,
-  LogOut, CheckCircle, XCircle, Loader2,
-  Sparkles, Bot, TrendingUp, Award, Zap,
-  ArrowRight, Star, Shield, HeartPulse
+  Calendar, Bell, User, Search, ChevronRight,
+  Stethoscope, Pill, FileText, Activity, Wind,
+  Heart, Clock, TrendingUp, MapPin, MessageCircle,
+  Building2, BarChart3, Flame, AlertCircle, Bot,
+  Brain, Sparkles, Send, Mic
 } from 'lucide-react';
 import apiClient from '../api/client';
 
-interface Appointment {
-  id: string;
-  doctor_name: string;
-  specialty: string;
-  date: string;
-  time: string;
-  status: string;
-  payment_status?: string;
+// AISymptomWidget
+import AISymptomWidget from '../components/ui/AISymptomWidget';
+
+interface DashboardData {
+  user: {
+    name: string;
+    avatar?: string;
+  };
+  next_appointment: {
+    has_appointment: boolean;
+    doctor_name?: string;
+    specialty?: string;
+    date?: string;
+    time?: string;
+    days_left?: number;
+  } | null;
+  today_medicines: {
+    total: number;
+    taken: number;
+    pending: number;
+    next_dose?: {
+      medicine: string;
+      time: string;
+      dosage: string;
+    };
+  };
+  air_quality: {
+    aqi: number;
+    level: string;
+    city: string;
+    icon: string;
+  };
+  health_score: {
+    score: number;
+    trend: 'up' | 'down';
+    change: number;
+  };
+  unread_messages: number;
+  unread_notifications: number;
 }
 
-interface Payment {
-  id: string;
-  amount: number;
-  status: string;
-  status_display: string;
-  provider: string;
-  provider_display: string;
-  created_at: string;
+const QUICK_ACTIONS = [
+  { id: 'doctors', icon: Stethoscope, label: 'Shifokorlar', path: '/doctors', color: 'bg-blue-500' },
+  { id: 'medicines', icon: Pill, label: 'Dorilar', path: '/medicine-reminders', color: 'bg-purple-500' },
+  { id: 'hospitals', icon: Building2, label: 'Kasalxonalar', path: '/hospitals', color: 'bg-green-500' },
+  { id: 'documents', icon: FileText, label: 'Hujjatlar', path: '/documents', color: 'bg-teal-500' },
+  { id: 'analytics', icon: BarChart3, label: 'Statistika', path: '/analytics', color: 'bg-orange-500' },
+  { id: 'air', icon: Wind, label: 'Havo sifati', path: '/air-quality', color: 'bg-cyan-500' },
+];
+
+// AI Chat Widget Component
+function AIChatWidget() {
+  const navigate = useNavigate();
+  const [message, setMessage] = useState('');
+
+  const quickQuestions = [
+    "Bosh og'rig'i",
+    "Uyqu muammosi",
+    "Immunitet",
+  ];
+
+  const handleSend = () => {
+    if (message.trim()) {
+      navigate(`/ai-chat?q=${encodeURIComponent(message)}`);
+    } else {
+      navigate('/ai-chat');
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden h-full">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center mr-3">
+              <Bot className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">AI Assistent</h3>
+              <div className="flex items-center text-emerald-100 text-sm">
+                <span className="w-2 h-2 bg-green-300 rounded-full mr-2 animate-pulse"></span>
+                Online
+              </div>
+            </div>
+          </div>
+          <div className="px-3 py-1 bg-white/20 rounded-full flex items-center">
+            <Sparkles className="h-4 w-4 mr-1" />
+            <span className="text-xs font-medium">AI</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        {/* Bot message */}
+        <div className="flex items-start mb-4">
+          <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+            <Bot className="h-4 w-4 text-emerald-600" />
+          </div>
+          <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-2">
+            <p className="text-sm text-gray-700">
+              Salom! Sizga qanday yordam bera olaman? 🏥
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Questions */}
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-2">
+            {quickQuestions.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => navigate(`/ai-chat?q=${encodeURIComponent(q)}`)}
+                className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs hover:bg-emerald-100 transition"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Input */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Savolingizni yozing..."
+              className="w-full px-4 py-2.5 bg-gray-100 rounded-xl text-sm pr-12 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              onClick={handleSend}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* CTA Button */}
+        <button
+          onClick={() => navigate('/ai-chat')}
+          className="w-full mt-3 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-700 transition flex items-center justify-center"
+        >
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Suhbatni boshlash
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-    fetchData();
-    updateGreeting();
-
-    // Vaqtni yangilash
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  const updateGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Xayrli tong');
     else if (hour < 18) setGreeting('Xayrli kun');
     else setGreeting('Xayrli kech');
-  };
 
-  const fetchData = async () => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
     try {
-      try {
-        const appointmentsRes = await apiClient.get('/api/appointments/');
-        setAppointments(appointmentsRes.data.slice(0, 3));
-      } catch (e) {}
+      const [profileRes, widgetsRes] = await Promise.all([
+        apiClient.get('/api/accounts/profile/'),
+        apiClient.get('/api/accounts/dashboard/widgets/').catch(() => null)
+      ]);
 
-      try {
-        const paymentsRes = await apiClient.get('/api/payments/history/');
-        setPayments(paymentsRes.data.slice(0, 3));
-      } catch (e) {}
+      const profile = profileRes.data;
+      const widgets = widgetsRes?.data || {};
 
-      try {
-        const notifRes = await apiClient.get('/api/notifications/?is_read=false');
-        setUnreadNotifications(notifRes.data.length || 0);
-      } catch (e) {}
-
-    } catch (err) {
-      console.error('Fetch error:', err);
+      setData({
+        user: {
+          name: profile.first_name || profile.full_name || 'Foydalanuvchi',
+        },
+        next_appointment: widgets.next_appointment || null,
+        today_medicines: widgets.today_medicines || { total: 3, taken: 2, pending: 1 },
+        air_quality: widgets.air_quality || { aqi: 75, level: "O'rtacha", city: 'Toshkent', icon: '😐' },
+        health_score: widgets.health_score || { score: 78, trend: 'up', change: 6 },
+        unread_messages: widgets.unread_messages?.count || 0,
+        unread_notifications: widgets.notifications?.unread_count || 0,
+      });
+    } catch (error) {
+      setData({
+        user: { name: 'Foydalanuvchi' },
+        next_appointment: {
+          has_appointment: true,
+          doctor_name: 'Dr. Akbar Karimov',
+          specialty: 'Kardiolog',
+          date: '2024-01-25',
+          time: '14:00',
+          days_left: 3,
+        },
+        today_medicines: { total: 3, taken: 2, pending: 1, next_dose: { medicine: 'Lisinopril', time: '20:00', dosage: '10mg' } },
+        air_quality: { aqi: 85, level: "O'rtacha", city: 'Toshkent', icon: '😐' },
+        health_score: { score: 78, trend: 'up', change: 6 },
+        unread_messages: 2,
+        unread_notifications: 3,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
-
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600 bg-green-100';
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      case 'failed': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getPaymentStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="h-4 w-4" />;
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'failed': return <XCircle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('uz-UZ', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-            <HeartPulse className="h-6 w-6 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-          </div>
-          <p className="mt-4 text-gray-600 font-medium">Yuklanmoqda...</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50 pb-20 lg:pb-8">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <Heart className="h-6 w-6 text-white" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-              </div>
-              <div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  HealthHub
-                </span>
-                <p className="text-xs text-gray-500">Sog'lom hayot</p>
-              </div>
+      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 lg:pt-6 pb-6 lg:pb-8">
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
+            <div>
+              <p className="text-blue-200 text-sm lg:text-base">{greeting} 👋</p>
+              <h1 className="text-xl lg:text-3xl font-bold">{data?.user.name}</h1>
             </div>
-
-            <div className="flex items-center space-x-2">
-              {/* Time Display */}
-              <div className="hidden md:flex items-center space-x-2 bg-gray-100 rounded-full px-4 py-2 mr-2">
-                <Clock className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">
-                  {currentTime.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-
-              <Link
-                to="/notifications"
-                className="relative p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+            <div className="flex items-center gap-2 lg:gap-3">
+              <button
+                onClick={() => navigate('/chat')}
+                className="relative p-2 lg:p-3 bg-white/20 rounded-full hover:bg-white/30 transition"
               >
-                <Bell className="h-5 w-5 text-gray-600 group-hover:text-blue-600 transition-colors" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                    {unreadNotifications}
+                <MessageCircle className="h-5 w-5 lg:h-6 lg:w-6" />
+                {data?.unread_messages && data.unread_messages > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                    {data.unread_messages}
                   </span>
                 )}
-              </Link>
-
-              <Link
-                to="/profile"
-                className="flex items-center space-x-2 hover:bg-gray-100 rounded-xl px-3 py-2 transition-all duration-200 group"
-              >
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-md">
-                  <span className="text-white font-bold text-sm">
-                    {user?.first_name?.charAt(0) || 'U'}
-                  </span>
-                </div>
-                <div className="hidden sm:block">
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
-                    {user?.first_name || 'User'}
-                  </span>
-                </div>
-              </Link>
-
+              </button>
               <button
-                onClick={handleLogout}
-                className="p-2.5 hover:bg-red-50 rounded-xl transition-all duration-200 group"
+                onClick={() => navigate('/notifications')}
+                className="relative p-2 lg:p-3 bg-white/20 rounded-full hover:bg-white/30 transition"
               >
-                <LogOut className="h-5 w-5 text-gray-400 group-hover:text-red-500 transition-colors" />
+                <Bell className="h-5 w-5 lg:h-6 lg:w-6" />
+                {data?.unread_notifications && data.unread_notifications > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                    {data.unread_notifications}
+                  </span>
+                )}
               </button>
             </div>
           </div>
+
+          {/* Search */}
+          <button
+            onClick={() => navigate('/doctors')}
+            className="w-full lg:max-w-xl flex items-center bg-white/20 rounded-xl px-4 py-3 lg:py-4 text-white/80 hover:bg-white/30 transition"
+          >
+            <Search className="h-5 w-5 mr-3" />
+            <span className="text-sm lg:text-base">Shifokor yoki kasallik qidirish...</span>
+          </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 pb-24 relative z-10">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-2 text-gray-500 text-sm mb-2">
-            <Sparkles className="h-4 w-4 text-yellow-500" />
-            <span>{greeting}</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {user?.first_name || 'Foydalanuvchi'} 👋
-          </h1>
-          <p className="text-gray-600 mt-1">Bugun sog'ligingiz qanday?</p>
-        </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 -mt-2 lg:-mt-4">
+        {/* Desktop: 2 columns, Mobile: 1 column */}
+        <div className="lg:grid lg:grid-cols-3 lg:gap-6">
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-blue-600" />
-              </div>
-              <TrendingUp className="h-4 w-4 text-green-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{appointments.length}</p>
-            <p className="text-xs text-gray-500">Faol qabullar</p>
-          </div>
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2 space-y-4 lg:space-y-6">
 
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <Award className="h-4 w-4 text-yellow-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{payments.filter(p => p.status === 'completed').length}</p>
-            <p className="text-xs text-gray-500">To'langan</p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Star className="h-5 w-5 text-purple-600" />
-              </div>
-              <Zap className="h-4 w-4 text-orange-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">4.8</p>
-            <p className="text-xs text-gray-500">Reyting</p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Shield className="h-5 w-5 text-orange-600" />
-              </div>
-              <HeartPulse className="h-4 w-4 text-red-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">100%</p>
-            <p className="text-xs text-gray-500">Xavfsizlik</p>
-          </div>
-        </div>
-
-        {/* Quick Actions - Main */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {/* AI Maslahatchi - ASOSIY */}
-          <Link
-            to="/ai-chat"
-            className="group relative overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 rounded-3xl p-6 text-white hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-500 hover:scale-[1.02]"
-          >
-            {/* Animated Background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-
-            {/* Floating Particles */}
-            <div className="absolute top-4 right-4 w-20 h-20 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-            <div className="absolute bottom-4 left-4 w-16 h-16 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700 delay-100"></div>
-
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Bot className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5">
-                  <Sparkles className="h-4 w-4 text-yellow-300 animate-pulse" />
-                  <span className="text-sm font-medium">AI</span>
-                </div>
-              </div>
-
-              <h3 className="text-2xl font-bold mb-2">AI Maslahatchi</h3>
-              <p className="text-white/80 mb-4">
-                Sun'iy intellekt yordamida sog'ligingiz haqida maslahat oling. 24/7 ishlaydi!
-              </p>
-
-              <div className="flex items-center space-x-2 text-white/90 group-hover:text-white transition-colors">
-                <span className="font-medium">Savol berish</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-2 transition-transform duration-300" />
+            {/* Quick Actions */}
+            <div className="bg-white rounded-2xl shadow-sm p-4 lg:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 hidden lg:block">Tezkor harakatlar</h2>
+              <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
+                {QUICK_ACTIONS.map(action => {
+                  const Icon = action.icon;
+                  return (
+                    <Link
+                      key={action.id}
+                      to={action.path}
+                      className="flex flex-col items-center p-3 lg:p-4 rounded-xl hover:bg-gray-50 transition"
+                    >
+                      <div className={`w-12 h-12 lg:w-14 lg:h-14 ${action.color} rounded-xl flex items-center justify-center mb-2`}>
+                        <Icon className="h-6 w-6 lg:h-7 lg:w-7 text-white" />
+                      </div>
+                      <span className="text-xs lg:text-sm text-gray-600 text-center">{action.label}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
 
-            {/* AI Badge */}
-            <div className="absolute bottom-4 right-4 flex items-center space-x-1 bg-white/10 backdrop-blur-sm rounded-lg px-2 py-1">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-xs text-white/80">Online</span>
-            </div>
-          </Link>
-
-          {/* Shifokorlar */}
-          <Link
-            to="/doctors"
-            className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 rounded-3xl p-6 text-white hover:shadow-2xl hover:shadow-green-500/30 transition-all duration-500 hover:scale-[1.02]"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-
-            <div className="absolute top-4 right-4 w-20 h-20 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Stethoscope className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Star className="h-4 w-4 text-yellow-300 fill-yellow-300" />
-                  <span className="text-sm font-medium">4.9</span>
-                </div>
-              </div>
-
-              <h3 className="text-2xl font-bold mb-2">Shifokorlar</h3>
-              <p className="text-white/80 mb-4">
-                Malakali mutaxassislar. Tez va oson qabulga yozilish.
-              </p>
-
-              <div className="flex items-center space-x-2 text-white/90 group-hover:text-white transition-colors">
-                <span className="font-medium">Qabulga yozilish</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-2 transition-transform duration-300" />
-              </div>
+            {/* AI Widgets - Desktop: side by side, Mobile: stacked */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+              <AIChatWidget />
+              <AISymptomWidget />
             </div>
 
-            <div className="absolute bottom-4 right-4 flex -space-x-2">
-              <div className="w-8 h-8 bg-white/30 rounded-full border-2 border-white/50"></div>
-              <div className="w-8 h-8 bg-white/30 rounded-full border-2 border-white/50"></div>
-              <div className="w-8 h-8 bg-white/30 rounded-full border-2 border-white/50 flex items-center justify-center text-xs font-bold">
-                +15
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Secondary Quick Actions */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <Link
-            to="/medicines"
-            className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-lg hover:border-purple-200 transition-all duration-300"
-          >
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-purple-500/30">
-                <Pill className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 group-hover:text-purple-600 transition-colors">Dorixona</h3>
-                <p className="text-sm text-gray-500">Dori qidirish & narxlar</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link
-            to="/payment/history"
-            className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-lg hover:border-orange-200 transition-all duration-300"
-          >
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-orange-500/30">
-                <CreditCard className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 group-hover:text-orange-600 transition-colors">To'lovlar</h3>
-                <p className="text-sm text-gray-500">To'lov tarixi</p>
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Upcoming Appointments */}
-          <div className="bg-white rounded-3xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900">Yaqinlashgan qabullar</h2>
-              </div>
+            {/* Next Appointment */}
+            {data?.next_appointment?.has_appointment && (
               <Link
                 to="/appointments"
-                className="flex items-center space-x-1 text-blue-600 text-sm hover:text-blue-700 font-medium group"
+                className="block bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-4 lg:p-6 text-white hover:from-blue-600 hover:to-blue-700 transition"
               >
-                <span>Barchasi</span>
-                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
-
-            {appointments.length === 0 ? (
-              <div className="text-center py-10">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="h-10 w-10 text-gray-300" />
-                </div>
-                <p className="text-gray-500 mb-3">Qabullar yo'q</p>
-                <Link
-                  to="/doctors"
-                  className="inline-flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
-                >
-                  <span>Qabulga yozilish</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {appointments.map((apt, index) => (
-                  <div
-                    key={apt.id}
-                    className="group flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-300"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md">
-                        <Stethoscope className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{apt.doctor_name}</p>
-                        <div className="flex items-center space-x-2 text-sm text-gray-500">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span>{apt.date}</span>
-                          <Clock className="h-3.5 w-3.5 ml-1" />
-                          <span>{apt.time}</span>
-                        </div>
-                      </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 lg:w-16 lg:h-16 bg-white/20 rounded-xl flex items-center justify-center mr-3 lg:mr-4">
+                      <Calendar className="h-6 w-6 lg:h-8 lg:w-8" />
                     </div>
-                    {apt.payment_status === 'pending' ? (
-                      <Link
-                        to={`/payment?amount=150000&appointment_id=${apt.id}`}
-                        className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-sm font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all duration-300"
-                      >
-                        To'lash
-                      </Link>
-                    ) : (
-                      <span className="px-3 py-1.5 bg-green-100 text-green-600 rounded-lg text-sm font-medium">
-                        ✓ To'langan
-                      </span>
-                    )}
+                    <div>
+                      <p className="text-white/80 text-sm lg:text-base">Keyingi qabul</p>
+                      <p className="font-semibold text-lg lg:text-xl">{data.next_appointment.doctor_name}</p>
+                      <p className="text-sm lg:text-base text-white/80">{data.next_appointment.specialty}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="text-right">
+                    <p className="text-3xl lg:text-4xl font-bold">{data.next_appointment.days_left}</p>
+                    <p className="text-sm lg:text-base text-white/80">kun qoldi</p>
+                  </div>
+                </div>
+              </Link>
             )}
+
+            {/* Today's Medicines */}
+            <Link
+              to="/medicine-reminders"
+              className="block bg-white rounded-2xl shadow-sm p-4 lg:p-6 hover:shadow-md transition"
+            >
+              <div className="flex items-center justify-between mb-3 lg:mb-4">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 lg:w-14 lg:h-14 bg-purple-100 rounded-xl flex items-center justify-center mr-3 lg:mr-4">
+                    <Pill className="h-5 w-5 lg:h-7 lg:w-7 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-base lg:text-lg">Bugungi dorilar</h3>
+                    <p className="text-sm lg:text-base text-gray-500">
+                      {data?.today_medicines.taken}/{data?.today_medicines.total} ichildi
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 lg:h-6 lg:w-6 text-gray-400" />
+              </div>
+
+              {/* Progress */}
+              <div className="h-2 lg:h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 rounded-full transition-all"
+                  style={{ width: `${((data?.today_medicines.taken || 0) / (data?.today_medicines.total || 1)) * 100}%` }}
+                />
+              </div>
+
+              {data?.today_medicines.next_dose && data.today_medicines.pending > 0 && (
+                <div className="mt-3 lg:mt-4 flex items-center text-sm lg:text-base">
+                  <Clock className="h-4 w-4 lg:h-5 lg:w-5 text-orange-500 mr-2" />
+                  <span className="text-gray-600">
+                    Keyingi: <span className="font-medium">{data.today_medicines.next_dose.medicine}</span> - {data.today_medicines.next_dose.time}
+                  </span>
+                </div>
+              )}
+            </Link>
           </div>
 
-          {/* Recent Payments */}
-          <div className="bg-white rounded-3xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                  <CreditCard className="h-5 w-5 text-green-600" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900">Oxirgi to'lovlar</h2>
-              </div>
+          {/* Right Column - Sidebar (Desktop only shows as sidebar, mobile shows inline) */}
+          <div className="space-y-4 lg:space-y-6 mt-4 lg:mt-0">
+
+            {/* Health Score & Air Quality */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:gap-4">
+              {/* Health Score */}
               <Link
-                to="/payment/history"
-                className="flex items-center space-x-1 text-blue-600 text-sm hover:text-blue-700 font-medium group"
+                to="/analytics"
+                className="bg-white rounded-2xl shadow-sm p-4 lg:p-6 hover:shadow-md transition"
               >
-                <span>Barchasi</span>
-                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <div className="flex items-center justify-between mb-2 lg:mb-3">
+                  <Heart className="h-5 w-5 lg:h-6 lg:w-6 text-red-500" />
+                  <div className={`flex items-center text-sm lg:text-base ${data?.health_score.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    <TrendingUp className="h-4 w-4 lg:h-5 lg:w-5 mr-0.5" />
+                    +{data?.health_score.change}
+                  </div>
+                </div>
+                <p className="text-3xl lg:text-4xl font-bold text-gray-900">{data?.health_score.score}</p>
+                <p className="text-xs lg:text-sm text-gray-500 mt-1">Sog'liq ballari</p>
+              </Link>
+
+              {/* Air Quality */}
+              <Link
+                to="/air-quality"
+                className="bg-white rounded-2xl shadow-sm p-4 lg:p-6 hover:shadow-md transition"
+              >
+                <div className="flex items-center justify-between mb-2 lg:mb-3">
+                  <Wind className="h-5 w-5 lg:h-6 lg:w-6 text-cyan-500" />
+                  <span className="text-2xl lg:text-3xl">{data?.air_quality.icon}</span>
+                </div>
+                <p className="text-3xl lg:text-4xl font-bold text-gray-900">{data?.air_quality.aqi}</p>
+                <p className="text-xs lg:text-sm text-gray-500 mt-1">{data?.air_quality.level} • {data?.air_quality.city}</p>
               </Link>
             </div>
 
-            {payments.length === 0 ? (
-              <div className="text-center py-10">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CreditCard className="h-10 w-10 text-gray-300" />
-                </div>
-                <p className="text-gray-500">To'lovlar yo'q</p>
+            {/* Quick Stats */}
+            <div className="bg-white rounded-2xl shadow-sm p-4 lg:p-6">
+              <h3 className="font-semibold text-gray-900 mb-3 lg:mb-4 text-base lg:text-lg">Statistika</h3>
+              <div className="grid grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-4">
+                <Link to="/appointments" className="flex lg:flex-row flex-col items-center lg:justify-between p-2 lg:p-3 hover:bg-gray-50 rounded-xl transition">
+                  <div className="flex items-center">
+                    <Calendar className="h-6 w-6 text-blue-500 lg:mr-3 mb-1 lg:mb-0" />
+                    <span className="hidden lg:block text-gray-600">Qabullar</span>
+                  </div>
+                  <p className="text-lg lg:text-xl font-bold text-gray-900">12</p>
+                  <p className="text-xs text-gray-500 lg:hidden">Qabullar</p>
+                </Link>
+                <Link to="/documents" className="flex lg:flex-row flex-col items-center lg:justify-between p-2 lg:p-3 hover:bg-gray-50 rounded-xl transition">
+                  <div className="flex items-center">
+                    <FileText className="h-6 w-6 text-teal-500 lg:mr-3 mb-1 lg:mb-0" />
+                    <span className="hidden lg:block text-gray-600">Hujjatlar</span>
+                  </div>
+                  <p className="text-lg lg:text-xl font-bold text-gray-900">8</p>
+                  <p className="text-xs text-gray-500 lg:hidden">Hujjatlar</p>
+                </Link>
+                <Link to="/doctors" className="flex lg:flex-row flex-col items-center lg:justify-between p-2 lg:p-3 hover:bg-gray-50 rounded-xl transition">
+                  <div className="flex items-center">
+                    <Stethoscope className="h-6 w-6 text-green-500 lg:mr-3 mb-1 lg:mb-0" />
+                    <span className="hidden lg:block text-gray-600">Shifokorlar</span>
+                  </div>
+                  <p className="text-lg lg:text-xl font-bold text-gray-900">5</p>
+                  <p className="text-xs text-gray-500 lg:hidden">Shifokorlar</p>
+                </Link>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {payments.map((payment, index) => (
-                  <div
-                    key={payment.id}
-                    className="group flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-green-200 hover:shadow-md transition-all duration-300"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md ${
-                        payment.provider === 'payme'
-                          ? 'bg-gradient-to-br from-cyan-500 to-blue-500'
-                          : 'bg-gradient-to-br from-blue-600 to-indigo-600'
-                      }`}>
-                        <CreditCard className="h-6 w-6 text-white" />
+            </div>
+
+            {/* Nearby Hospitals */}
+            <div className="bg-white rounded-2xl shadow-sm p-4 lg:p-6">
+              <div className="flex items-center justify-between mb-3 lg:mb-4">
+                <h3 className="font-semibold text-gray-900 text-base lg:text-lg">Yaqin atrofdagi</h3>
+                <Link to="/hospitals" className="text-blue-600 text-sm font-medium hover:underline">
+                  Barchasi
+                </Link>
+              </div>
+              <div className="space-y-2 lg:space-y-3">
+                {[
+                  { id: 1, name: 'Dori-Darmon Dorixonasi', type: 'Dorixona', distance: '1.2 km', is_24: true },
+                  { id: 2, name: 'Premium Med Clinic', type: 'Klinika', distance: '2.5 km', is_24: false },
+                  { id: 3, name: 'City Hospital', type: 'Kasalxona', distance: '3.8 km', is_24: true },
+                ].map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-2 lg:p-3 hover:bg-gray-50 rounded-xl transition cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 lg:w-12 lg:h-12 bg-green-100 rounded-xl flex items-center justify-center mr-3">
+                        <Building2 className="h-5 w-5 lg:h-6 lg:w-6 text-green-600" />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">
-                          {payment.amount.toLocaleString()} UZS
-                        </p>
-                        <p className="text-sm text-gray-500">{formatDate(payment.created_at)}</p>
+                        <p className="font-medium text-gray-900 text-sm lg:text-base">{item.name}</p>
+                        <p className="text-xs lg:text-sm text-gray-500">{item.type}</p>
                       </div>
                     </div>
-                    <span className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center space-x-1.5 ${getPaymentStatusColor(payment.status)}`}>
-                      {getPaymentStatusIcon(payment.status)}
-                      <span>{payment.status_display}</span>
-                    </span>
+                    <div className="text-right">
+                      <p className="text-sm lg:text-base font-medium text-gray-900">{item.distance}</p>
+                      {item.is_24 && <p className="text-xs text-green-600">24 soat</p>}
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </main>
-
-      {/* Bottom Navigation - Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-gray-200 px-2 py-2 md:hidden z-50">
-        <div className="flex justify-around">
-          <Link to="/dashboard" className="flex flex-col items-center py-2 px-3 text-blue-600">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mb-1">
-              <Activity className="h-5 w-5" />
-            </div>
-            <span className="text-xs font-medium">Bosh sahifa</span>
-          </Link>
-          <Link to="/appointments" className="flex flex-col items-center py-2 px-3 text-gray-400 hover:text-blue-600 transition-colors">
-            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center mb-1">
-              <Calendar className="h-5 w-5" />
-            </div>
-            <span className="text-xs font-medium">Qabullar</span>
-          </Link>
-          <Link to="/ai-chat" className="flex flex-col items-center py-2 px-3 text-gray-400 hover:text-purple-600 transition-colors">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-1 shadow-lg shadow-purple-500/30">
-              <Bot className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xs font-medium">AI Chat</span>
-          </Link>
-          <Link to="/profile" className="flex flex-col items-center py-2 px-3 text-gray-400 hover:text-blue-600 transition-colors">
-            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center mb-1">
-              <User className="h-5 w-5" />
-            </div>
-            <span className="text-xs font-medium">Profil</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* CSS for animations */}
-      <style>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(20px, -30px) scale(1.1); }
-          50% { transform: translate(-20px, 20px) scale(0.9); }
-          75% { transform: translate(30px, 10px) scale(1.05); }
-        }
-        .animate-blob {
-          animation: blob 8s infinite ease-in-out;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 }

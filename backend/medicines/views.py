@@ -1,10 +1,12 @@
 # medicines/views.py
+import random
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db.models import Min, Max
-from .models import Category, Pharmacy, Medicine, PharmacyPrice
+from django.utils import timezone
+from .models import Category, Pharmacy, Medicine, PharmacyPrice, Hospital, HospitalReview
 from .serializers import (
     CategorySerializer, PharmacySerializer, MedicineSerializer,
     MedicineListSerializer, MedicineCompareSerializer, PharmacyPriceSerializer
@@ -66,24 +68,20 @@ class MedicineViewSet(viewsets.ModelViewSet):
         """Dorilar ro'yxati"""
         queryset = self.queryset.all()
 
-        # Filter by category
         category = request.query_params.get('category')
         if category:
             queryset = queryset.filter(category_id=category)
 
-        # Filter by prescription
         prescription = request.query_params.get('prescription')
         if prescription == 'true':
             queryset = queryset.filter(requires_prescription=True)
         elif prescription == 'false':
             queryset = queryset.filter(requires_prescription=False)
 
-        # Search
         search = request.query_params.get('search')
         if search:
             queryset = queryset.filter(name__icontains=search)
 
-        # Ordering
         ordering = request.query_params.get('ordering', 'name')
         if ordering in ['name', '-name', 'price', '-price']:
             queryset = queryset.order_by(ordering)
@@ -95,7 +93,6 @@ class MedicineViewSet(viewsets.ModelViewSet):
         """Dori detail - narxlar bilan"""
         medicine = self.get_object()
 
-        # Dorixonalardagi narxlar
         prices = PharmacyPrice.objects.filter(medicine=medicine).order_by('price')
         prices_data = []
         for idx, p in enumerate(prices):
@@ -160,7 +157,6 @@ class MedicineViewSet(viewsets.ModelViewSet):
                 'is_cheapest': idx == 0 and price.in_stock
             })
 
-        # Statistika
         in_stock_prices = [p for p in data if p['in_stock']]
 
         return Response({
@@ -220,9 +216,7 @@ class MedicineViewSet(viewsets.ModelViewSet):
                     'savings_percent': round((savings / float(med.price)) * 100, 1) if float(med.price) > 0 else 0
                 })
 
-        # Eng ko'p tejash bo'yicha saralash
         data.sort(key=lambda x: x['savings'], reverse=True)
-
         return Response(data)
 
 
@@ -236,23 +230,461 @@ class PharmacyPriceViewSet(viewsets.ModelViewSet):
         """Narxlar ro'yxati"""
         queryset = self.queryset.all()
 
-        # Filter by medicine
         medicine = request.query_params.get('medicine')
         if medicine:
             queryset = queryset.filter(medicine_id=medicine)
 
-        # Filter by pharmacy
         pharmacy = request.query_params.get('pharmacy')
         if pharmacy:
             queryset = queryset.filter(pharmacy_id=pharmacy)
 
-        # Only in stock
         in_stock = request.query_params.get('in_stock')
         if in_stock == 'true':
             queryset = queryset.filter(in_stock=True)
 
-        # Order by price
         queryset = queryset.order_by('price')
 
         serializer = self.get_serializer(queryset[:100], many=True)
         return Response(serializer.data)
+
+
+# ============ MEDICINE REMINDERS ============
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def medicine_reminders(request):
+    """Dori eslatmalari ro'yxati va yaratish"""
+
+    if request.method == 'GET':
+        reminders = [
+            {
+                'id': 1,
+                'medicine_name': 'Lisinopril',
+                'dosage': '10mg - 1 tabletka',
+                'frequency': 'daily',
+                'frequency_display': 'Har kuni',
+                'times': ['08:00', '20:00'],
+                'start_date': '2024-01-01',
+                'end_date': '2024-03-01',
+                'status': 'active',
+                'with_food': True,
+                'before_food': False,
+                'notes': 'Qon bosimini nazorat qilish uchun',
+                'next_dose': '20:00',
+                'taken_today': 1,
+                'total_today': 2,
+                'streak': 15,
+            },
+            {
+                'id': 2,
+                'medicine_name': 'Vitamin D3',
+                'dosage': '1000 IU - 1 kapsula',
+                'frequency': 'daily',
+                'frequency_display': 'Har kuni',
+                'times': ['09:00'],
+                'start_date': '2024-01-01',
+                'end_date': None,
+                'status': 'active',
+                'with_food': True,
+                'before_food': False,
+                'notes': '',
+                'next_dose': 'Ertaga 09:00',
+                'taken_today': 1,
+                'total_today': 1,
+                'streak': 30,
+            },
+            {
+                'id': 3,
+                'medicine_name': 'Omeprazol',
+                'dosage': '20mg - 1 kapsula',
+                'frequency': 'twice_daily',
+                'frequency_display': 'Kuniga 2 marta',
+                'times': ['07:00', '19:00'],
+                'start_date': '2024-01-10',
+                'end_date': '2024-01-24',
+                'status': 'completed',
+                'with_food': False,
+                'before_food': True,
+                'notes': 'Ovqatdan 30 daqiqa oldin',
+                'next_dose': None,
+                'taken_today': 0,
+                'total_today': 0,
+                'streak': 14,
+            },
+        ]
+
+        status_filter = request.GET.get('status', 'active')
+        if status_filter != 'all':
+            reminders = [r for r in reminders if r['status'] == status_filter]
+
+        return Response({
+            'count': len(reminders),
+            'reminders': reminders
+        })
+
+    elif request.method == 'POST':
+        data = request.data
+        new_reminder = {
+            'id': random.randint(100, 999),
+            'medicine_name': data.get('medicine_name'),
+            'dosage': data.get('dosage'),
+            'frequency': data.get('frequency', 'daily'),
+            'times': data.get('times', ['08:00']),
+            'start_date': data.get('start_date', str(timezone.now().date())),
+            'end_date': data.get('end_date'),
+            'status': 'active',
+            'with_food': data.get('with_food', False),
+            'before_food': data.get('before_food', False),
+            'notes': data.get('notes', ''),
+        }
+
+        return Response(new_reminder, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def medicine_reminder_detail(request, pk):
+    """Bitta eslatma tafsilotlari"""
+
+    reminder = {
+        'id': pk,
+        'medicine_name': 'Lisinopril',
+        'dosage': '10mg - 1 tabletka',
+        'frequency': 'daily',
+        'frequency_display': 'Har kuni',
+        'times': ['08:00', '20:00'],
+        'start_date': '2024-01-01',
+        'end_date': '2024-03-01',
+        'status': 'active',
+        'with_food': True,
+        'before_food': False,
+        'notes': 'Qon bosimini nazorat qilish uchun',
+        'history': [
+            {'date': '2024-01-20', 'time': '08:00', 'status': 'taken', 'actual_time': '08:05'},
+            {'date': '2024-01-20', 'time': '20:00', 'status': 'taken', 'actual_time': '20:10'},
+            {'date': '2024-01-19', 'time': '08:00', 'status': 'taken', 'actual_time': '08:00'},
+            {'date': '2024-01-19', 'time': '20:00', 'status': 'skipped', 'actual_time': None},
+        ]
+    }
+
+    if request.method == 'GET':
+        return Response(reminder)
+
+    elif request.method == 'PUT':
+        return Response({'message': 'Yangilandi', **reminder})
+
+    elif request.method == 'DELETE':
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def log_medicine_taken(request, pk):
+    """Dori ichildi deb belgilash"""
+
+    action = request.data.get('action', 'taken')
+
+    log = {
+        'id': random.randint(1000, 9999),
+        'reminder_id': pk,
+        'scheduled_time': request.data.get('scheduled_time', timezone.now().isoformat()),
+        'actual_time': timezone.now().isoformat() if action == 'taken' else None,
+        'status': action,
+        'message': {
+            'taken': 'Dori ichildi deb belgilandi ✅',
+            'skipped': "O'tkazib yuborildi",
+            'snoozed': '15 daqiqaga keyinga qoldirildi',
+        }.get(action, 'Saqlandi')
+    }
+
+    return Response(log, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def today_schedule(request):
+    """Bugungi dori jadvali"""
+
+    schedule = [
+        {
+            'id': 1,
+            'time': '08:00',
+            'medicine_name': 'Lisinopril',
+            'dosage': '10mg',
+            'status': 'taken',
+            'taken_at': '08:05',
+            'with_food': True,
+        },
+        {
+            'id': 2,
+            'time': '09:00',
+            'medicine_name': 'Vitamin D3',
+            'dosage': '1000 IU',
+            'status': 'taken',
+            'taken_at': '09:00',
+            'with_food': True,
+        },
+        {
+            'id': 3,
+            'time': '20:00',
+            'medicine_name': 'Lisinopril',
+            'dosage': '10mg',
+            'status': 'pending',
+            'taken_at': None,
+            'with_food': True,
+        },
+    ]
+
+    stats = {
+        'total': len(schedule),
+        'taken': len([s for s in schedule if s['status'] == 'taken']),
+        'pending': len([s for s in schedule if s['status'] == 'pending']),
+        'skipped': len([s for s in schedule if s['status'] == 'skipped']),
+        'adherence_rate': 85,
+    }
+
+    return Response({
+        'date': str(timezone.now().date()),
+        'schedule': schedule,
+        'stats': stats
+    })
+
+
+# ============ HOSPITALS ============
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def hospitals_list(request):
+    """Kasalxonalar ro'yxati"""
+
+    # Demo data
+    hospitals = [
+        {
+            'id': 1,
+            'name': 'Toshkent Tibbiyot Akademiyasi Klinikasi',
+            'hospital_type': 'hospital',
+            'type_display': 'Kasalxona',
+            'address': 'Toshkent sh., Almazar tumani, Farobiy ko\'chasi 2',
+            'city': 'Toshkent',
+            'latitude': 41.311081,
+            'longitude': 69.279737,
+            'phone': '+998 71 268 50 00',
+            'rating': 4.5,
+            'reviews_count': 128,
+            'is_24_hours': True,
+            'distance': 2.5,
+            'specializations': ['Kardiologiya', 'Nevrologiya', 'Terapiya', 'Jarrohlik'],
+        },
+        {
+            'id': 2,
+            'name': 'Respublika Shoshilinch Tibbiy Yordam Markazi',
+            'hospital_type': 'hospital',
+            'type_display': 'Kasalxona',
+            'address': 'Toshkent sh., Shayxontohur tumani, Kichik Xalqa yo\'li 2',
+            'city': 'Toshkent',
+            'latitude': 41.328650,
+            'longitude': 69.255889,
+            'phone': '+998 71 277 09 05',
+            'rating': 4.7,
+            'reviews_count': 256,
+            'is_24_hours': True,
+            'distance': 4.2,
+            'specializations': ['Travmatologiya', 'Reanimatologiya', 'Jarrohlik'],
+        },
+        {
+            'id': 3,
+            'name': 'Premium Med Clinic',
+            'hospital_type': 'clinic',
+            'type_display': 'Klinika',
+            'address': 'Toshkent sh., Yunusobod tumani, Amir Temur ko\'chasi 88',
+            'city': 'Toshkent',
+            'latitude': 41.350000,
+            'longitude': 69.300000,
+            'phone': '+998 71 200 00 00',
+            'rating': 4.8,
+            'reviews_count': 89,
+            'is_24_hours': False,
+            'working_hours': '08:00 - 20:00',
+            'distance': 3.1,
+            'specializations': ['UZI', 'Laboratoriya', 'Terapiya'],
+        },
+        {
+            'id': 4,
+            'name': 'Dori-Darmon Dorixonasi',
+            'hospital_type': 'pharmacy',
+            'type_display': 'Dorixona',
+            'address': 'Toshkent sh., Mirzo Ulug\'bek tumani, Buyuk Ipak Yo\'li 48',
+            'city': 'Toshkent',
+            'latitude': 41.340000,
+            'longitude': 69.285000,
+            'phone': '+998 71 255 55 55',
+            'rating': 4.3,
+            'reviews_count': 45,
+            'is_24_hours': True,
+            'distance': 1.2,
+            'specializations': ['Dorilar', 'Tibbiy anjomlar'],
+        },
+        {
+            'id': 5,
+            'name': 'Invitro Laboratoriyasi',
+            'hospital_type': 'laboratory',
+            'type_display': 'Laboratoriya',
+            'address': 'Toshkent sh., Chilonzor tumani, Bunyodkor ko\'chasi 5',
+            'city': 'Toshkent',
+            'latitude': 41.285000,
+            'longitude': 69.205000,
+            'phone': '+998 71 150 00 00',
+            'rating': 4.6,
+            'reviews_count': 167,
+            'is_24_hours': False,
+            'working_hours': '07:00 - 19:00',
+            'distance': 5.5,
+            'specializations': ['Qon tahlili', 'Genetik testlar', 'Allergiya testlari'],
+        },
+        {
+            'id': 6,
+            'name': 'Smile Dental Clinic',
+            'hospital_type': 'dental',
+            'type_display': 'Stomatologiya',
+            'address': 'Toshkent sh., Yunusobod tumani, Bogishamol ko\'chasi 12',
+            'city': 'Toshkent',
+            'latitude': 41.355000,
+            'longitude': 69.290000,
+            'phone': '+998 71 234 56 78',
+            'rating': 4.9,
+            'reviews_count': 203,
+            'is_24_hours': False,
+            'working_hours': '09:00 - 21:00',
+            'distance': 2.8,
+            'specializations': ['Terapevtik stomatologiya', 'Ortodontiya', 'Implantatsiya'],
+        },
+    ]
+
+    # Filters
+    hospital_type = request.GET.get('type')
+    if hospital_type:
+        hospitals = [h for h in hospitals if h['hospital_type'] == hospital_type]
+
+    city = request.GET.get('city')
+    if city:
+        hospitals = [h for h in hospitals if h['city'].lower() == city.lower()]
+
+    search = request.GET.get('search', '').lower()
+    if search:
+        hospitals = [h for h in hospitals if
+                     search in h['name'].lower() or
+                     search in h['address'].lower() or
+                     any(search in s.lower() for s in h['specializations'])
+                     ]
+
+    # Sort
+    sort_by = request.GET.get('sort', 'distance')
+    if sort_by == 'distance':
+        hospitals.sort(key=lambda x: x.get('distance', 999))
+    elif sort_by == 'rating':
+        hospitals.sort(key=lambda x: x.get('rating', 0), reverse=True)
+    elif sort_by == 'name':
+        hospitals.sort(key=lambda x: x.get('name', ''))
+
+    return Response({
+        'count': len(hospitals),
+        'hospitals': hospitals
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def hospital_detail(request, pk):
+    """Kasalxona tafsilotlari"""
+
+    hospital = {
+        'id': pk,
+        'name': 'Toshkent Tibbiyot Akademiyasi Klinikasi',
+        'hospital_type': 'hospital',
+        'type_display': 'Kasalxona',
+        'address': 'Toshkent sh., Almazar tumani, Farobiy ko\'chasi 2',
+        'city': 'Toshkent',
+        'latitude': 41.311081,
+        'longitude': 69.279737,
+        'phone': '+998 71 268 50 00',
+        'email': 'info@tma.uz',
+        'website': 'https://tma.uz',
+        'rating': 4.5,
+        'reviews_count': 128,
+        'is_24_hours': True,
+        'working_hours': {
+            'mon': '00:00 - 24:00',
+            'tue': '00:00 - 24:00',
+            'wed': '00:00 - 24:00',
+            'thu': '00:00 - 24:00',
+            'fri': '00:00 - 24:00',
+            'sat': '00:00 - 24:00',
+            'sun': '00:00 - 24:00',
+        },
+        'specializations': ['Kardiologiya', 'Nevrologiya', 'Terapiya', 'Jarrohlik'],
+        'services': [
+            'Ambulator qabul',
+            'Statsionar davolash',
+            'Shoshilinch yordam',
+            'Laboratoriya xizmatlari',
+            'Diagnostika',
+            'Fizioterapiya',
+        ],
+        'description': "O'zbekistondagi eng yirik davlat tibbiyot muassasasi.",
+        'reviews': [
+            {'id': 1, 'user_name': 'Alisher K.', 'rating': 5, 'comment': 'Ajoyib shifokorlar!', 'date': '2024-01-15'},
+            {'id': 2, 'user_name': 'Madina R.', 'rating': 4, 'comment': 'Yaxshi xizmat.', 'date': '2024-01-10'},
+        ]
+    }
+
+    return Response(hospital)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def hospital_review(request, pk):
+    """Kasalxonaga sharh qoldirish"""
+
+    rating = request.data.get('rating')
+    comment = request.data.get('comment', '')
+
+    if not rating or not (1 <= int(rating) <= 5):
+        return Response({'error': 'Rating 1-5 oralig\'ida bo\'lishi kerak'}, status=400)
+
+    review = {
+        'id': random.randint(100, 999),
+        'hospital_id': pk,
+        'user_name': request.user.get_full_name() or request.user.phone,
+        'rating': int(rating),
+        'comment': comment,
+        'date': str(timezone.now().date()),
+    }
+
+    return Response({
+        'message': 'Sharhingiz qabul qilindi!',
+        'review': review
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def nearby_hospitals(request):
+    """Yaqin atrofdagi kasalxonalar"""
+
+    hospitals = [
+        {'id': 4, 'name': 'Dori-Darmon Dorixonasi', 'hospital_type': 'pharmacy', 'type_display': 'Dorixona',
+         'distance': 1.2, 'is_24_hours': True, 'rating': 4.3},
+        {'id': 1, 'name': 'Toshkent Tibbiyot Akademiyasi', 'hospital_type': 'hospital', 'type_display': 'Kasalxona',
+         'distance': 2.5, 'is_24_hours': True, 'rating': 4.5},
+        {'id': 3, 'name': 'Premium Med Clinic', 'hospital_type': 'clinic', 'type_display': 'Klinika', 'distance': 3.1,
+         'is_24_hours': False, 'rating': 4.8},
+    ]
+
+    hospital_type = request.GET.get('type')
+    if hospital_type:
+        hospitals = [h for h in hospitals if h['hospital_type'] == hospital_type]
+
+    return Response({
+        'count': len(hospitals),
+        'hospitals': hospitals
+    })

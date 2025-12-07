@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Send, Bot, User, Loader2, AlertCircle,
-  Heart, Stethoscope, Clock, Star, MapPin, Phone,
+  Heart, Stethoscope, Clock, Star, MapPin,
   AlertTriangle, CheckCircle, Info, ChevronRight
 } from 'lucide-react';
 import apiClient from '../api/client';
@@ -32,7 +32,7 @@ export default function AIChat() {
 
     // Welcome message
     setMessages([{
-      id: '1',
+      id: 'welcome-1',
       role: 'assistant',
       content: 'welcome',
       data: { type: 'welcome' },
@@ -49,7 +49,7 @@ export default function AIChat() {
     if (!input.trim() || loading) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       role: 'user',
       content: input.trim(),
       timestamp: new Date()
@@ -61,14 +61,14 @@ export default function AIChat() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/api/ai/consultations/analyze/', {
+      const response = await apiClient.post('/ai/consultations/analyze/', {
         symptoms: symptoms
       });
 
       const data = response.data;
 
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: 'analysis',
         data: data,
@@ -80,7 +80,7 @@ export default function AIChat() {
       console.error('AI Error:', err);
 
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `error-${Date.now()}`,
         role: 'assistant',
         content: 'error',
         data: { error: err.response?.data?.error || 'Xatolik yuz berdi' },
@@ -122,10 +122,10 @@ export default function AIChat() {
     }
   };
 
-  const renderMessage = (message: Message) => {
+  const renderMessage = (message: Message, messageIndex: number) => {
     if (message.role === 'user') {
       return (
-        <div key={message.id} className="flex justify-end mb-4">
+        <div key={`msg-${message.id}-${messageIndex}`} className="flex justify-end mb-4">
           <div className="max-w-[80%] flex items-start space-x-2 flex-row-reverse space-x-reverse">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
               <User className="h-5 w-5 text-white" />
@@ -144,7 +144,7 @@ export default function AIChat() {
     // Welcome message
     if (message.data?.type === 'welcome') {
       return (
-        <div key={message.id} className="flex justify-start mb-4">
+        <div key={`msg-${message.id}-${messageIndex}`} className="flex justify-start mb-4">
           <div className="max-w-[90%]">
             <div className="flex items-start space-x-3">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -186,7 +186,7 @@ export default function AIChat() {
     // Error message
     if (message.content === 'error') {
       return (
-        <div key={message.id} className="flex justify-start mb-4">
+        <div key={`msg-${message.id}-${messageIndex}`} className="flex justify-start mb-4">
           <div className="bg-red-50 border border-red-200 p-4 rounded-2xl">
             <div className="flex items-center text-red-700">
               <AlertCircle className="h-5 w-5 mr-2" />
@@ -201,7 +201,7 @@ export default function AIChat() {
     if (message.content === 'analysis' && message.data) {
       const data = message.data;
       return (
-        <div key={message.id} className="flex justify-start mb-4">
+        <div key={`msg-${message.id}-${messageIndex}`} className="flex justify-start mb-4">
           <div className="max-w-[95%] w-full">
             <div className="flex items-start space-x-3">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -235,7 +235,7 @@ export default function AIChat() {
                     </h4>
                     <ul className="space-y-2">
                       {data.first_aid.map((item: string, index: number) => (
-                        <li key={index} className="flex items-start text-green-700">
+                        <li key={`first-aid-${messageIndex}-${index}`} className="flex items-start text-green-700">
                           <span className="mr-2">•</span>
                           <span>{item}</span>
                         </li>
@@ -252,7 +252,7 @@ export default function AIChat() {
                     </h4>
                     <ul className="space-y-2">
                       {data.home_treatment.map((item: string, index: number) => (
-                        <li key={index} className="flex items-start text-blue-700">
+                        <li key={`home-treatment-${messageIndex}-${index}`} className="flex items-start text-blue-700">
                           <span className="mr-2">•</span>
                           <span>{item}</span>
                         </li>
@@ -270,7 +270,7 @@ export default function AIChat() {
                     </h4>
                     <ul className="space-y-2">
                       {data.warning_signs.map((item: string, index: number) => (
-                        <li key={index} className="flex items-start text-red-700">
+                        <li key={`warning-${messageIndex}-${index}`} className="flex items-start text-red-700">
                           <span>{item}</span>
                         </li>
                       ))}
@@ -293,9 +293,9 @@ export default function AIChat() {
                       Tavsiya Etilgan Shifokorlar
                     </h4>
                     <div className="space-y-3">
-                      {data.recommended_doctors.map((doctor: any) => (
+                      {data.recommended_doctors.map((doctor: any, doctorIndex: number) => (
                         <Link
-                          key={doctor.id}
+                          key={`doctor-${messageIndex}-${doctorIndex}-${doctor.id}`}
                           to={`/book-appointment/${doctor.id}`}
                           className="block p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors border"
                         >
@@ -383,7 +383,7 @@ export default function AIChat() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-4xl mx-auto">
-          {messages.map(renderMessage)}
+          {messages.map((message, index) => renderMessage(message, index))}
 
           {loading && (
             <div className="flex justify-start mb-4">

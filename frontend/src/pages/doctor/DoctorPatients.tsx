@@ -1,238 +1,269 @@
 // src/pages/doctor/DoctorPatients.tsx
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import {
-  Users, Search, User, Phone, Mail, Calendar,
-  FileText, Menu, Heart, X, LogOut, Activity,
-  Clock, ChevronRight, Eye
+  Users, Search, Filter, Phone, Mail, Calendar,
+  FileText, MoreVertical, ChevronRight, Plus,
+  Heart, Activity, AlertCircle
 } from 'lucide-react';
-import apiClient from '../../api/client';
 
 interface Patient {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
+  id: number;
+  name: string;
   phone: string;
-  date_of_birth: string;
-  gender: string;
+  email?: string;
+  age: number;
+  gender: 'male' | 'female';
+  blood_type?: string;
   last_visit: string;
   total_visits: number;
+  diagnosis: string;
+  status: 'stable' | 'improving' | 'critical' | 'monitoring';
+  avatar?: string;
 }
 
 export default function DoctorPatients() {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
-  useEffect(() => {
-    fetchPatients();
-  }, []);
+  const [patients] = useState<Patient[]>([
+    { id: 1, name: 'Aziza Karimova', phone: '+998 90 123 45 67', email: 'aziza@mail.uz', age: 34, gender: 'female', blood_type: 'A+', last_visit: '2024-01-20', total_visits: 8, diagnosis: 'Migren', status: 'stable' },
+    { id: 2, name: 'Bobur Aliyev', phone: '+998 91 234 56 78', age: 45, gender: 'male', blood_type: 'O+', last_visit: '2024-01-19', total_visits: 12, diagnosis: 'Gipertoniya', status: 'improving' },
+    { id: 3, name: 'Dilnoza Rahimova', phone: '+998 93 345 67 89', email: 'dilnoza@mail.uz', age: 28, gender: 'female', blood_type: 'B+', last_visit: '2024-01-18', total_visits: 5, diagnosis: 'Aritmiya', status: 'monitoring' },
+    { id: 4, name: 'Eldor Toshmatov', phone: '+998 94 456 78 90', age: 52, gender: 'male', blood_type: 'AB-', last_visit: '2024-01-15', total_visits: 15, diagnosis: 'Yurak yetishmovchiligi', status: 'critical' },
+    { id: 5, name: 'Feruza Umarova', phone: '+998 95 567 89 01', age: 41, gender: 'female', blood_type: 'A-', last_visit: '2024-01-14', total_visits: 6, diagnosis: 'Qon bosimi', status: 'stable' },
+    { id: 6, name: 'Gulnora Saidova', phone: '+998 97 678 90 12', email: 'gulnora@mail.uz', age: 38, gender: 'female', blood_type: 'O-', last_visit: '2024-01-12', total_visits: 9, diagnosis: 'Uyqusizlik', status: 'improving' },
+  ]);
 
-  const fetchPatients = async () => {
-    setLoading(true);
-    try {
-      const response = await apiClient.get('/api/doctors/patients/');
-      setPatients(response.data);
-    } catch (err) {
-      // Demo data
-      setPatients([
-        { id: '1', first_name: 'Ali', last_name: 'Valiyev', email: 'ali@test.uz', phone: '+998901234567', date_of_birth: '1990-05-15', gender: 'male', last_visit: '2024-01-20', total_visits: 5 },
-        { id: '2', first_name: 'Madina', last_name: 'Karimova', email: 'madina@test.uz', phone: '+998907654321', date_of_birth: '1985-08-22', gender: 'female', last_visit: '2024-01-18', total_visits: 3 },
-        { id: '3', first_name: 'Bobur', last_name: 'Alimov', email: 'bobur@test.uz', phone: '+998901112233', date_of_birth: '1978-12-03', gender: 'male', last_visit: '2024-01-15', total_visits: 8 },
-        { id: '4', first_name: 'Nilufar', last_name: 'Saidova', email: 'nilufar@test.uz', phone: '+998905556677', date_of_birth: '1995-03-28', gender: 'female', last_visit: '2024-01-22', total_visits: 2 },
-        { id: '5', first_name: 'Sardor', last_name: 'Rahimov', email: 'sardor@test.uz', phone: '+998909998877', date_of_birth: '1982-07-10', gender: 'male', last_visit: '2024-01-10', total_visits: 12 },
-      ]);
-    } finally {
-      setLoading(false);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'stable': return 'bg-green-100 text-green-700';
+      case 'improving': return 'bg-blue-100 text-blue-700';
+      case 'monitoring': return 'bg-yellow-100 text-yellow-700';
+      case 'critical': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
     }
   };
 
-  const calculateAge = (dob: string) => {
-    const today = new Date();
-    const birthDate = new Date(dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'stable': return 'Barqaror';
+      case 'improving': return 'Yaxshilanmoqda';
+      case 'monitoring': return 'Kuzatuvda';
+      case 'critical': return 'Jiddiy';
+      default: return status;
     }
-    return age;
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('uz-UZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const menuItems = [
-    { icon: Activity, label: 'Dashboard', link: '/doctor/dashboard' },
-    { icon: Calendar, label: 'Qabullar', link: '/doctor/appointments' },
-    { icon: Users, label: 'Bemorlar', link: '/doctor/patients', active: true },
-    { icon: Clock, label: 'Ish jadvali', link: '/doctor/schedule' },
-    { icon: FileText, label: 'Tibbiy yozuvlar', link: '/doctor/records' },
-    { icon: User, label: 'Profil', link: '/doctor/profile' },
-  ];
-
-  const filteredPatients = patients.filter(p =>
-    `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    p.email.toLowerCase().includes(search.toLowerCase()) ||
-    p.phone.includes(search)
-  );
+  const filteredPatients = patients.filter(p => {
+    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+    <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Bemorlar</h1>
+          <p className="text-gray-500 mt-1">Jami {patients.length} ta bemor</p>
+        </div>
+        <button className="mt-4 lg:mt-0 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+          <Plus className="h-5 w-5" />
+          Yangi bemor
+        </button>
+      </div>
 
-      {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-50 transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b border-gray-100">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Heart className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">HealthHub</span>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{patients.length}</p>
+              <p className="text-sm text-gray-500">Jami bemorlar</p>
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden">
-              <X className="h-6 w-6 text-gray-400" />
-            </button>
+            <Users className="h-8 w-8 text-blue-500" />
           </div>
-          <p className="text-xs text-gray-500 mt-1">Shifokor Panel</p>
         </div>
-
-        <nav className="p-4">
-          <ul className="space-y-1">
-            {menuItems.map((item, idx) => (
-              <li key={idx}>
-                <Link to={item.link} className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${item.active ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}>
-                  <item.icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
-          <Link to="/login" className="flex items-center space-x-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-xl">
-            <LogOut className="h-5 w-5" />
-            <span className="font-medium">Chiqish</span>
-          </Link>
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-green-600">{patients.filter(p => p.status === 'stable').length}</p>
+              <p className="text-sm text-gray-500">Barqaror</p>
+            </div>
+            <Heart className="h-8 w-8 text-green-500" />
+          </div>
         </div>
-      </aside>
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-yellow-600">{patients.filter(p => p.status === 'monitoring').length}</p>
+              <p className="text-sm text-gray-500">Kuzatuvda</p>
+            </div>
+            <Activity className="h-8 w-8 text-yellow-500" />
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-red-600">{patients.filter(p => p.status === 'critical').length}</p>
+              <p className="text-sm text-gray-500">Jiddiy</p>
+            </div>
+            <AlertCircle className="h-8 w-8 text-red-500" />
+          </div>
+        </div>
+      </div>
 
-      {/* Main */}
-      <div className="lg:ml-64">
-        <header className="bg-white shadow-sm sticky top-0 z-30">
-          <div className="px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
-                <Menu className="h-6 w-6 text-gray-600" />
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Bemorlar</h1>
-                <p className="text-sm text-gray-500">Jami: {patients.length} ta bemor</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Patients List */}
+        <div className="lg:col-span-2">
+          {/* Search & Filter */}
+          <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Bemor qidirish..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto">
+                {['all', 'stable', 'improving', 'monitoring', 'critical'].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
+                      statusFilter === status
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {status === 'all' ? 'Barchasi' : getStatusText(status)}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
-        </header>
 
-        <main className="p-4 lg:p-6">
-          {/* Search */}
-          <div className="bg-white rounded-2xl shadow-sm p-4 mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Bemor qidirish (ism, email, telefon)..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Patients List */}
-          {loading ? (
-            <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            </div>
-          ) : filteredPatients.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-              <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Bemorlar topilmadi</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {filteredPatients.map((patient) => (
-                <div key={patient.id} className="bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${patient.gender === 'male' ? 'bg-blue-100' : 'bg-pink-100'}`}>
-                        <User className={`h-7 w-7 ${patient.gender === 'male' ? 'text-blue-600' : 'text-pink-600'}`} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
-                          {patient.first_name} {patient.last_name}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {calculateAge(patient.date_of_birth)} yosh • {patient.gender === 'male' ? 'Erkak' : 'Ayol'}
-                        </p>
-                      </div>
+          {/* List */}
+          <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+            {filteredPatients.map((patient) => (
+              <div
+                key={patient.id}
+                className={`p-4 hover:bg-gray-50 cursor-pointer transition ${selectedPatient?.id === patient.id ? 'bg-blue-50' : ''}`}
+                onClick={() => setSelectedPatient(patient)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-white font-semibold text-lg">{patient.name.charAt(0)}</span>
                     </div>
-                    <Link
-                      to={`/doctor/patients/${patient.id}`}
-                      className="p-2 hover:bg-gray-100 rounded-lg"
-                    >
-                      <Eye className="h-5 w-5 text-gray-500" />
-                    </Link>
-                  </div>
-
-                  <div className="mt-4 space-y-2 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                      {patient.phone}
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                      {patient.email}
+                    <div>
+                      <p className="font-semibold text-gray-900">{patient.name}</p>
+                      <p className="text-sm text-gray-500">{patient.age} yosh • {patient.gender === 'male' ? 'Erkak' : 'Ayol'}</p>
+                      <p className="text-sm text-gray-500">{patient.diagnosis}</p>
                     </div>
                   </div>
-
-                  <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                    <div className="text-sm">
-                      <span className="text-gray-500">Oxirgi tashrif:</span>
-                      <span className="ml-1 font-medium text-gray-900">{formatDate(patient.last_visit)}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-gray-500">Jami:</span>
-                      <span className="ml-1 font-medium text-blue-600">{patient.total_visits} ta</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex space-x-2">
-                    <Link
-                      to={`/doctor/medical-record/new?patient=${patient.id}`}
-                      className="flex-1 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center justify-center"
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      Tibbiy yozuv
-                    </Link>
-                    <Link
-                      to={`/doctor/patients/${patient.id}/history`}
-                      className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 flex items-center justify-center"
-                    >
-                      <Calendar className="h-4 w-4 mr-1" />
-                      Tarix
-                    </Link>
+                  <div className="text-right">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
+                      {getStatusText(patient.status)}
+                    </span>
+                    <p className="text-xs text-gray-500 mt-2">Oxirgi: {patient.last_visit}</p>
                   </div>
                 </div>
-              ))}
+              </div>
+            ))}
+
+            {filteredPatients.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Bemorlar topilmadi</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Patient Details */}
+        <div className="lg:col-span-1">
+          {selectedPatient ? (
+            <div className="bg-white rounded-xl shadow-sm p-6 sticky top-6">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white font-bold text-2xl">{selectedPatient.name.charAt(0)}</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">{selectedPatient.name}</h3>
+                <p className="text-gray-500">{selectedPatient.age} yosh • {selectedPatient.gender === 'male' ? 'Erkak' : 'Ayol'}</p>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedPatient.status)}`}>
+                  {getStatusText(selectedPatient.status)}
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                  <Phone className="h-5 w-5 text-gray-400 mr-3" />
+                  <div>
+                    <p className="text-xs text-gray-500">Telefon</p>
+                    <p className="font-medium text-gray-900">{selectedPatient.phone}</p>
+                  </div>
+                </div>
+
+                {selectedPatient.email && (
+                  <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                    <Mail className="h-5 w-5 text-gray-400 mr-3" />
+                    <div>
+                      <p className="text-xs text-gray-500">Email</p>
+                      <p className="font-medium text-gray-900">{selectedPatient.email}</p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedPatient.blood_type && (
+                  <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                    <Heart className="h-5 w-5 text-red-400 mr-3" />
+                    <div>
+                      <p className="text-xs text-gray-500">Qon guruhi</p>
+                      <p className="font-medium text-gray-900">{selectedPatient.blood_type}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                  <FileText className="h-5 w-5 text-gray-400 mr-3" />
+                  <div>
+                    <p className="text-xs text-gray-500">Tashxis</p>
+                    <p className="font-medium text-gray-900">{selectedPatient.diagnosis}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                  <Calendar className="h-5 w-5 text-gray-400 mr-3" />
+                  <div>
+                    <p className="text-xs text-gray-500">Tashriflar</p>
+                    <p className="font-medium text-gray-900">{selectedPatient.total_visits} ta</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <button className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                  Tibbiy tarix
+                </button>
+                <button className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+                  Qabul yozish
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+              <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Bemor tanlang</p>
             </div>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

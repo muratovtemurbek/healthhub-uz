@@ -6,11 +6,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
+import requests
 
 from .models import User
 from .serializers import (
     UserSerializer, UserRegistrationSerializer,
-    UserLoginSerializer, UserProfileUpdateSerializer
+    UserLoginSerializer, UserProfileUpdateSerializer,
+    MedicalCardSerializer, MedicalCardUpdateSerializer,
+    ChangePasswordSerializer
 )
 
 
@@ -160,6 +163,311 @@ def current_user(request):
     """Joriy foydalanuvchi ma'lumotlari"""
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
+
+# ==================== PROFILE & MEDICAL CARD ====================
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def profile_detail(request):
+    """Profil olish va tahrirlash"""
+    user = request.user
+
+    if request.method == 'GET':
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    elif request.method == 'PATCH':
+        serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'user': UserSerializer(user).data,
+                'message': 'Profil muvaffaqiyatli yangilandi!'
+            })
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def medical_card(request):
+    """Tibbiy karta olish va yangilash"""
+    user = request.user
+
+    if request.method == 'GET':
+        serializer = MedicalCardSerializer(user)
+        return Response(serializer.data)
+
+    elif request.method == 'PATCH':
+        serializer = MedicalCardUpdateSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'medical_card': MedicalCardSerializer(user).data,
+                'message': 'Tibbiy karta yangilandi!'
+            })
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Parol o'zgartirish"""
+    serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'message': 'Parol muvaffaqiyatli o\'zgartirildi!'
+        })
+
+    return Response(serializer.errors, status=400)
+
+
+# ==================== AIR QUALITY & HEALTH ALERTS ====================
+
+IQAIR_API_KEY = "895c0f03-bdea-469a-acec-f6bb76f98138"  # IQAir API key
+
+# Kasalliklar va havo sifati ta'siri
+HEALTH_SENSITIVITY = {
+    'asthma': {'name': 'Astma', 'aqi_threshold': 50, 'message': 'Astma uchun xavfli havo!'},
+    'bronchitis': {'name': 'Bronxit', 'aqi_threshold': 75, 'message': 'Bronxit uchun xavfli havo!'},
+    'heart_disease': {'name': 'Yurak kasalligi', 'aqi_threshold': 100, 'message': 'Yurak kasalligi uchun xavfli!'},
+    'allergy': {'name': 'Allergiya', 'aqi_threshold': 50, 'message': 'Allergiya uchun xavfli havo!'},
+    'diabetes': {'name': 'Diabet', 'aqi_threshold': 100, 'message': 'Diabet bemorlari uchun ehtiyotkor bo\'ling!'},
+    'hypertension': {'name': 'Gipertoniya', 'aqi_threshold': 75, 'message': 'Qon bosimi oshishi mumkin!'},
+    'copd': {'name': 'COPD', 'aqi_threshold': 50, 'message': 'O\'pka kasalligi uchun juda xavfli!'},
+    'respiratory': {'name': 'Nafas kasalliklari', 'aqi_threshold': 75, 'message': 'Nafas olish qiyinlashishi mumkin!'},
+}
+
+
+def get_aqi_status(aqi):
+    """AQI darajasini aniqlash"""
+    if aqi <= 50:
+        return {
+            'level': 'good',
+            'label': 'Yaxshi',
+            'color': 'green',
+            'description': 'Havo sifati yaxshi. Ochiq havoda faollik xavfsiz.',
+            'icon': '😊'
+        }
+    elif aqi <= 100:
+        return {
+            'level': 'moderate',
+            'label': 'O\'rtacha',
+            'color': 'yellow',
+            'description': 'Havo sifati qoniqarli. Sezgir odamlar ehtiyot bo\'lishi kerak.',
+            'icon': '😐'
+        }
+    elif aqi <= 150:
+        return {
+            'level': 'unhealthy_sensitive',
+            'label': 'Sezgirlar uchun zararli',
+            'color': 'orange',
+            'description': 'Surunkali kasalligi borlar ochiq havoda kam bo\'lsin.',
+            'icon': '😷'
+        }
+    elif aqi <= 200:
+        return {
+            'level': 'unhealthy',
+            'label': 'Zararli',
+            'color': 'red',
+            'description': 'Hamma uchun sog\'liq ta\'siri bo\'lishi mumkin.',
+            'icon': '🤒'
+        }
+    elif aqi <= 300:
+        return {
+            'level': 'very_unhealthy',
+            'label': 'Juda zararli',
+            'color': 'purple',
+            'description': 'Sog\'liq uchun jiddiy xavf. Uyda qoling.',
+            'icon': '🏥'
+        }
+    else:
+        return {
+            'level': 'hazardous',
+            'label': 'Xavfli',
+            'color': 'maroon',
+            'description': 'Favqulodda holat! Tashqariga chiqmang.',
+            'icon': '☠️'
+        }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def health_alerts(request):
+    """Foydalanuvchi sog'lig'iga asoslangan havo sifati ogohlantirishlari"""
+    user = request.user
+    city = request.GET.get('city', 'Tashkent')
+    country = request.GET.get('country', 'Uzbekistan')
+
+    # Foydalanuvchi kasalliklarini olish
+    user_conditions = []
+    if user.chronic_diseases:
+        if isinstance(user.chronic_diseases, list):
+            user_conditions = [c.lower() for c in user.chronic_diseases]
+        elif isinstance(user.chronic_diseases, str):
+            user_conditions = [c.strip().lower() for c in user.chronic_diseases.split(',')]
+
+    # Allergiyalarni ham qo'shish
+    if user.allergies:
+        user_conditions.append('allergy')
+
+    # IQAir API dan havo sifatini olish
+    try:
+        # Demo rejimda static data
+        # Real API: https://api.airvisual.com/v2/city?city={city}&state={state}&country={country}&key={key}
+
+        # Demo data (IQAir API key bo'lmaganda)
+        air_data = {
+            'city': city,
+            'country': country,
+            'aqi': 78,  # Demo AQI
+            'main_pollutant': 'pm2.5',
+            'temperature': 22,
+            'humidity': 45,
+            'wind_speed': 3.5,
+            'weather_icon': '01d'
+        }
+
+        # Real API call (API key bo'lganda)
+        if IQAIR_API_KEY and IQAIR_API_KEY != "your-iqair-api-key":
+            try:
+                api_url = f"http://api.airvisual.com/v2/city?city={city}&state={city}&country={country}&key={IQAIR_API_KEY}"
+                response = requests.get(api_url, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'success':
+                        current = data['data']['current']
+                        pollution = current['pollution']
+                        weather = current['weather']
+                        air_data = {
+                            'city': city,
+                            'country': country,
+                            'aqi': pollution['aqius'],
+                            'main_pollutant': pollution.get('mainus', 'pm2.5'),
+                            'temperature': weather.get('tp', 0),
+                            'humidity': weather.get('hu', 0),
+                            'wind_speed': weather.get('ws', 0),
+                            'weather_icon': weather.get('ic', '01d')
+                        }
+            except Exception as e:
+                print(f"IQAir API error: {e}")
+
+        aqi = air_data['aqi']
+        aqi_status = get_aqi_status(aqi)
+
+        # Shaxsiy ogohlantirish yaratish
+        personal_alerts = []
+        for condition in user_conditions:
+            for key, sensitivity in HEALTH_SENSITIVITY.items():
+                if key in condition or condition in key:
+                    if aqi > sensitivity['aqi_threshold']:
+                        personal_alerts.append({
+                            'condition': sensitivity['name'],
+                            'message': sensitivity['message'],
+                            'severity': 'high' if aqi > sensitivity['aqi_threshold'] + 50 else 'medium',
+                            'recommendation': get_recommendation(key, aqi)
+                        })
+
+        # Umumiy tavsiyalar
+        recommendations = get_general_recommendations(aqi, user_conditions)
+
+        return Response({
+            'air_quality': {
+                'aqi': aqi,
+                'status': aqi_status,
+                'main_pollutant': air_data['main_pollutant'],
+                'city': air_data['city'],
+                'country': air_data['country'],
+            },
+            'weather': {
+                'temperature': air_data['temperature'],
+                'humidity': air_data['humidity'],
+                'wind_speed': air_data['wind_speed'],
+                'icon': air_data['weather_icon']
+            },
+            'personal_alerts': personal_alerts,
+            'has_alerts': len(personal_alerts) > 0,
+            'recommendations': recommendations,
+            'user_conditions': user_conditions,
+            'last_updated': timezone.now().isoformat()
+        })
+
+    except Exception as e:
+        return Response({
+            'error': f'Havo ma\'lumotlarini olishda xatolik: {str(e)}',
+            'air_quality': None,
+            'personal_alerts': [],
+            'recommendations': []
+        }, status=500)
+
+
+def get_recommendation(condition, aqi):
+    """Kasallikka qarab tavsiya"""
+    recommendations = {
+        'asthma': 'Inhaler yoningizda bo\'lsin. Tashqarida bo\'lishni kamaytiring.',
+        'bronchitis': 'Ko\'p suv iching. Uyda dam oling.',
+        'heart_disease': 'Og\'ir jismoniy mashqlardan saqlaning.',
+        'allergy': 'Allergiya dorilarini oling. Oyna va eshiklarni yoping.',
+        'diabetes': 'Qand darajasini tez-tez tekshiring.',
+        'hypertension': 'Qon bosimini kuzating. Stressdan saqlaning.',
+        'copd': 'Kislorod apparatini tayyor tuting. Shifokorga murojaat qiling.',
+        'respiratory': 'N95 niqob taqing. Uyda havo tozalagich ishlating.',
+    }
+    return recommendations.get(condition, 'Ehtiyot bo\'ling va shifokorga murojaat qiling.')
+
+
+def get_general_recommendations(aqi, conditions):
+    """Umumiy tavsiyalar"""
+    recommendations = []
+
+    if aqi > 50:
+        recommendations.append({
+            'icon': '🏠',
+            'title': 'Uyda qoling',
+            'description': 'Iloji boricha tashqariga chiqmang'
+        })
+        recommendations.append({
+            'icon': '😷',
+            'title': 'Niqob taqing',
+            'description': 'Tashqarida N95 niqob ishlating'
+        })
+
+    if aqi > 100:
+        recommendations.append({
+            'icon': '💨',
+            'title': 'Havo tozalagich',
+            'description': 'Uyda havo tozalagich ishlating'
+        })
+        recommendations.append({
+            'icon': '🚫',
+            'title': 'Sport qilmang',
+            'description': 'Ochiq havoda sport qilmang'
+        })
+
+    if aqi > 150:
+        recommendations.append({
+            'icon': '🏥',
+            'title': 'Shifokorga murojaat',
+            'description': 'Ahvol yomonlashsa darhol shifokorga boring'
+        })
+
+    if conditions:
+        recommendations.append({
+            'icon': '💊',
+            'title': 'Dorilaringiz',
+            'description': 'Zarur dorilarni yoningizda saqlang'
+        })
+
+    if not recommendations:
+        recommendations.append({
+            'icon': '✅',
+            'title': 'Havo yaxshi',
+            'description': 'Ochiq havoda faollik xavfsiz'
+        })
+
+    return recommendations
 
 
 # ==================== ADMIN API ====================
@@ -340,7 +648,8 @@ def admin_appointments(request):
     status_filter = request.GET.get('status', None)
     limit = int(request.GET.get('limit', 50))
 
-    appointments = Appointment.objects.select_related('patient', 'doctor', 'doctor__user', 'doctor__specialization').order_by('-date', '-time')
+    appointments = Appointment.objects.select_related('patient', 'doctor', 'doctor__user',
+                                                      'doctor__specialization').order_by('-date', '-time')
 
     if status_filter and status_filter != 'all':
         appointments = appointments.filter(status=status_filter)
@@ -378,4 +687,341 @@ def admin_appointments(request):
     return Response({
         'results': data,
         'count': appointments.count()
+    })
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.utils import timezone
+from datetime import timedelta
+import random
+
+
+# ============ MEDICAL DOCUMENTS ============
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def medical_documents(request):
+    """Tibbiy hujjatlar ro'yxati"""
+
+    if request.method == 'GET':
+        documents = [
+            {
+                'id': 1,
+                'title': 'Qon tahlili natijasi',
+                'document_type': 'analysis',
+                'document_type_display': 'Tahlil natijasi',
+                'file_url': '/media/documents/blood_test.pdf',
+                'file_type': 'pdf',
+                'file_size': 245000,
+                'file_size_display': '245 KB',
+                'doctor_name': 'Dr. Akbar Karimov',
+                'hospital_name': 'Toshkent Tibbiyot Markazi',
+                'document_date': '2024-01-15',
+                'is_important': True,
+                'created_at': '2024-01-15T10:30:00Z',
+            },
+            {
+                'id': 2,
+                'title': 'EKG natijasi',
+                'document_type': 'analysis',
+                'document_type_display': 'Tahlil natijasi',
+                'file_url': '/media/documents/ekg.pdf',
+                'file_type': 'pdf',
+                'file_size': 180000,
+                'file_size_display': '180 KB',
+                'doctor_name': 'Dr. Malika Rahimova',
+                'hospital_name': 'Kardiologiya Markazi',
+                'document_date': '2024-01-10',
+                'is_important': True,
+                'created_at': '2024-01-10T14:00:00Z',
+            },
+            {
+                'id': 3,
+                'title': 'Retsept - Lisinopril',
+                'document_type': 'prescription',
+                'document_type_display': 'Retsept',
+                'file_url': '/media/documents/prescription.jpg',
+                'file_type': 'jpg',
+                'file_size': 120000,
+                'file_size_display': '120 KB',
+                'doctor_name': 'Dr. Akbar Karimov',
+                'hospital_name': 'Toshkent Tibbiyot Markazi',
+                'document_date': '2024-01-05',
+                'is_important': False,
+                'created_at': '2024-01-05T16:00:00Z',
+            },
+        ]
+
+        doc_type = request.GET.get('type')
+        if doc_type:
+            documents = [d for d in documents if d['document_type'] == doc_type]
+
+        return Response({
+            'count': len(documents),
+            'documents': documents
+        })
+
+    elif request.method == 'POST':
+        return Response({
+            'id': random.randint(100, 999),
+            'message': 'Hujjat yuklandi',
+            'title': request.data.get('title', 'Yangi hujjat'),
+        }, status=201)
+
+
+@api_view(['GET', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def medical_document_detail(request, pk):
+    """Bitta hujjat"""
+
+    if request.method == 'GET':
+        document = {
+            'id': pk,
+            'title': 'Qon tahlili natijasi',
+            'document_type': 'analysis',
+            'file_url': '/media/documents/blood_test.pdf',
+            'description': "Umumiy qon tahlili. Barcha ko'rsatkichlar normal.",
+            'doctor_name': 'Dr. Akbar Karimov',
+            'hospital_name': 'Toshkent Tibbiyot Markazi',
+            'document_date': '2024-01-15',
+        }
+        return Response(document)
+
+    elif request.method == 'DELETE':
+        return Response(status=204)
+
+
+# ============ HEALTH ANALYTICS ============
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def health_statistics(request):
+    """Umumiy sog'liq statistikasi"""
+
+    period = request.GET.get('period', 'month')
+
+    stats = {
+        'period': period,
+        'summary': {
+            'total_appointments': 12,
+            'completed_appointments': 10,
+            'cancelled_appointments': 2,
+            'total_spent': 1850000,
+            'total_spent_display': '1,850,000 so\'m',
+            'doctors_visited': 5,
+            'medicines_taken': 156,
+            'adherence_rate': 87,
+        },
+        'health_score': {
+            'current': 78,
+            'previous': 72,
+            'change': 6,
+            'trend': 'up',
+            'factors': [
+                {'name': 'Dori rejimi', 'score': 85, 'max': 100},
+                {'name': 'Qabullar', 'score': 90, 'max': 100},
+                {'name': 'Faollik', 'score': 65, 'max': 100},
+                {'name': 'Uyqu', 'score': 70, 'max': 100},
+            ]
+        },
+        'appointments_by_specialty': [
+            {'specialty': 'Kardiolog', 'count': 4},
+            {'specialty': 'Terapevt', 'count': 3},
+            {'specialty': 'Nevrolog', 'count': 2},
+            {'specialty': 'Dermatolog', 'count': 2},
+            {'specialty': 'Umumiy', 'count': 1},
+        ],
+        'spending_by_category': [
+            {'category': 'Qabullar', 'amount': 1200000},
+            {'category': 'Dorilar', 'amount': 450000},
+            {'category': 'Tahlillar', 'amount': 200000},
+        ]
+    }
+
+    return Response(stats)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def appointments_chart(request):
+    """Qabullar grafigi"""
+
+    data = []
+    months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek']
+
+    for month in months:
+        data.append({
+            'month': month,
+            'completed': random.randint(0, 4),
+            'cancelled': random.randint(0, 1),
+        })
+
+    return Response({
+        'data': data,
+        'total_completed': sum(d['completed'] for d in data),
+        'total_cancelled': sum(d['cancelled'] for d in data),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def spending_chart(request):
+    """To'lovlar grafigi"""
+
+    data = []
+    months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek']
+
+    for month in months:
+        data.append({
+            'month': month,
+            'appointments': random.randint(50000, 300000),
+            'medicines': random.randint(20000, 150000),
+            'tests': random.randint(0, 100000),
+        })
+
+    return Response({
+        'data': data,
+        'total': sum(d['appointments'] + d['medicines'] + d['tests'] for d in data),
+    })
+
+
+def get_aqi_level(aqi):
+    if aqi <= 50:
+        return 'good'
+    elif aqi <= 100:
+        return 'moderate'
+    elif aqi <= 150:
+        return 'sensitive'
+    elif aqi <= 200:
+        return 'unhealthy'
+    else:
+        return 'hazardous'
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def air_quality_history_chart(request):
+    """Havo sifati tarixi"""
+
+    days = int(request.GET.get('days', 30))
+    city = request.GET.get('city', 'Toshkent')
+
+    data = []
+    for i in range(days):
+        date = timezone.now().date() - timedelta(days=days - 1 - i)
+        aqi = random.randint(40, 180)
+        data.append({
+            'date': str(date),
+            'aqi': aqi,
+            'level': get_aqi_level(aqi),
+        })
+
+    aqi_values = [d['aqi'] for d in data]
+
+    return Response({
+        'city': city,
+        'data': data,
+        'statistics': {
+            'average': round(sum(aqi_values) / len(aqi_values), 1),
+            'min': min(aqi_values),
+            'max': max(aqi_values),
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def medicine_adherence_chart(request):
+    """Dori rejimiga rioya qilish"""
+
+    days = int(request.GET.get('days', 30))
+
+    data = []
+    for i in range(days):
+        date = timezone.now().date() - timedelta(days=days - 1 - i)
+        total = random.randint(2, 4)
+        taken = random.randint(1, total)
+
+        data.append({
+            'date': str(date),
+            'total': total,
+            'taken': taken,
+            'adherence': round(taken / total * 100) if total > 0 else 0,
+        })
+
+    adherence_values = [d['adherence'] for d in data]
+
+    return Response({
+        'data': data,
+        'statistics': {
+            'average_adherence': round(sum(adherence_values) / len(adherence_values), 1),
+            'perfect_days': len([a for a in adherence_values if a == 100]),
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def weekly_report(request):
+    """Haftalik hisobot"""
+
+    return Response({
+        'period': {
+            'start': str(timezone.now().date() - timedelta(days=7)),
+            'end': str(timezone.now().date()),
+        },
+        'highlights': [
+            {'type': 'positive', 'text': 'Dori rejimiga 90% rioya qildingiz'},
+            {'type': 'positive', 'text': '2 ta qabulga bordingiz'},
+            {'type': 'neutral', 'text': 'Havo sifati o\'rtacha bo\'ldi'},
+            {'type': 'suggestion', 'text': 'Keyingi qabulni rejalashtiring'},
+        ],
+        'medicine_adherence': 90,
+        'appointments_attended': 2,
+        'total_spent': 300000,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_widgets(request):
+    """Dashboard uchun widget ma'lumotlari"""
+
+    return Response({
+        'next_appointment': {
+            'has_appointment': True,
+            'doctor_name': 'Dr. Akbar Karimov',
+            'specialty': 'Kardiolog',
+            'date': str(timezone.now().date() + timedelta(days=3)),
+            'time': '14:00',
+            'days_left': 3,
+        },
+        'today_medicines': {
+            'total': 3,
+            'taken': 2,
+            'pending': 1,
+            'next_dose': {
+                'medicine': 'Lisinopril',
+                'time': '20:00',
+                'dosage': '10mg',
+            }
+        },
+        'air_quality': {
+            'aqi': 85,
+            'level': "O'rtacha",
+            'city': 'Toshkent',
+            'icon': '😐',
+        },
+        'health_score': {
+            'score': 78,
+            'trend': 'up',
+            'change': 6,
+        },
+        'unread_messages': {
+            'count': 2,
+        },
+        'notifications': {
+            'unread_count': 3,
+        }
     })
