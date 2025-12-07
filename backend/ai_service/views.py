@@ -360,7 +360,7 @@ class AIConsultationViewSet(viewsets.ViewSet):
             }
         })
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def analyze(self, request):
         """Alomatlarni tahlil qilish (text input)"""
         symptoms_text = request.data.get('symptoms', '').strip()
