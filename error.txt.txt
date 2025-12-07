@@ -1,7 +1,0 @@
-install mise packages: python
-403ms
-mise python@3.11.0   install
-mise ERROR failed to install core:python@3.11.0
-mise ERROR no precompiled python found for core:python@3.11.0 on x86_64-unknown-linux-gnu
-mise ERROR Run with --verbose or MISE_VERBOSE=1 for more information
-Build Failed: build daemon returned an error < failed to solve: process "mise install" did not complete successfully: exit code: 1 >
