@@ -199,7 +199,7 @@ export default function SymptomChecker() {
     setError('');
 
     try {
-      const response = await apiClient.post('/ai/consultations/analyze/', {
+      const response = await apiClient.post('/api/ai/consultations/analyze/', {
         symptoms: selectedSymptoms.join(', '),
         age: age ? parseInt(age) : null,
         gender,

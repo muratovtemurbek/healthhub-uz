@@ -61,7 +61,7 @@ export default function AIChat() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/ai/consultations/analyze/', {
+      const response = await apiClient.post('/api/ai/consultations/analyze/', {
         symptoms: symptoms
       });
 
