@@ -1,11 +1,14 @@
 [phases.setup]
-nixPkgs = ["python312", "python312Packages.pip"]
+nixPkgs = []
 
 [phases.install]
-cmds = ["cd backend && python -m pip install -r requirements.txt"]
+cmds = ["cd backend && pip install -r requirements.txt"]
 
 [phases.build]
 cmds = ["cd backend && python manage.py collectstatic --noinput"]
 
 [start]
 cmd = "cd backend && python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+
+[variables]
+NIXPACKS_PYTHON_VERSION = "3.11"
