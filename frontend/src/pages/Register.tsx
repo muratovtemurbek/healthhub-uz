@@ -67,7 +67,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/register/', {
+      const response = await apiClient.post('/api/auth/register/', {
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
@@ -89,7 +89,7 @@ export default function Register() {
         setUserId(response.data.user.id);
       }
 
-      const codeRes = await apiClient.post('/telegram/generate/', {
+      const codeRes = await apiClient.post('/api/telegram/generate/', {
         user_id: response.data.user.id
       });
 
@@ -158,7 +158,7 @@ export default function Register() {
     setModalError('');
 
     try {
-      const res = await apiClient.post('/telegram/verify/', {
+      const res = await apiClient.post('/api/telegram/verify/', {
         user_id: userId,
         code: enteredCode
       });

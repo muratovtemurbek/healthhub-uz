@@ -1,3 +1,7 @@
- API_BASE_URL = http://localhost:8000/api
-index-4g3JijF2.js:16 📤 API Request: POST /api/auth/login/
-hook.js:608 📥 Response error: ERR_NETWORK /api/auth/login/
+🌐 API_BASE_URL = https://healthhub-uz-production.up.railway.app
+index-C05Hq_4q.js:16 📤 API Request: POST /api/auth/login/
+index-C05Hq_4q.js:16 📥 API Response: 200 /api/auth/login/
+index-C05Hq_4q.js:16 📤 API Request: POST /auth/register/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /auth/register/
+overrideMethod @ hook.js:608
+hook.js:608 Register error: ja
