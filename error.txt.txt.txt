@@ -3,3 +3,8 @@ index-j4BQuxa7.js:16 Register error:
 Aa {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
 index-j4BQuxa7.js:13 
  POST http://localhost:8000/api/auth/register/ net::ERR_CONNECTION_REFUSED
+index-j4BQuxa7.js:16 📥 Response error: ERR_NETWORK /auth/register/
+index-j4BQuxa7.js:16 Register error: 
+Aa {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+index-j4BQuxa7.js:13 
+ POST http://localhost:8000/api/auth/register/ net::ERR_CONNECTION_REFUSED
