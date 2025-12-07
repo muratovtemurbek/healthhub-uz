@@ -1,10 +1,9 @@
 // src/api/client.ts
 import axios from 'axios';
 
-// Development uchun localhost, production uchun Railway
-const API_BASE_URL = import.meta.env.DEV
-  ? 'http://localhost:8000/api'
-  : (import.meta.env.VITE_API_URL || window.location.origin + '/api');
+// Production uchun window.location.origin, development uchun localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : window.location.origin + '/api');
 
 console.log('🌐 API_BASE_URL =', API_BASE_URL);
 
