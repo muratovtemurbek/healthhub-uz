@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Production uchun window.location.origin, development uchun localhost
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
-  (window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : window.location.origin + '/api');
+  (window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin);
 
 console.log('🌐 API_BASE_URL =', API_BASE_URL);
 
