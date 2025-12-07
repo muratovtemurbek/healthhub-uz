@@ -1,4 +1,5 @@
 # Stage 1: Build Frontend
+# Cache bust: v2
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /frontend
@@ -8,7 +9,7 @@ COPY frontend/package*.json ./
 RUN npm install
 
 COPY frontend/ .
-RUN npm run build
+RUN echo "Building frontend at $(date)" && npm run build
 
 # Stage 2: Python Backend
 FROM python:3.11-slim
