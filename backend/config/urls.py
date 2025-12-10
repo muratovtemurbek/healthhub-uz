@@ -33,8 +33,8 @@ urlpatterns = [
 
     # /api/ bilan (v1 olib tashlandi)
     path('api/', include([
-        path('auth/', include('accounts.urls')),
-        path('accounts/', include('accounts.urls')),  # /api/accounts/ ham ishlaydi
+        path('auth/', include('accounts.urls', namespace='auth')),
+        path('accounts/', include('accounts.urls', namespace='accounts')),  # /api/accounts/ ham ishlaydi
         path('doctors/', include('doctors.urls')),
         path('appointments/', include('appointments.urls')),
         path('admin-panel/', include('admin_panel.urls')),

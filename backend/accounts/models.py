@@ -30,7 +30,7 @@ class User(AbstractUser):
     chronic_diseases = models.JSONField(default=list, blank=True)
 
     # Emergency
-    emergency_contact = models.CharField(max_length=100, blank=True, default='')
+    emergency_contact = models.TextField(blank=True, default='')
     insurance_number = models.CharField(max_length=50, blank=True, default='')
 
     # Status

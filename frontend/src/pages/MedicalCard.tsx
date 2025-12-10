@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Heart, Droplet, Activity, AlertTriangle,
-  Pill, Edit2, Save, X, Plus, Trash2, User, Phone, Loader2
+  Edit2, Save, X, Plus, Trash2, User, Phone, Loader2
 } from 'lucide-react';
 import apiClient from '../api/client';
 

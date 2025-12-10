@@ -177,6 +177,7 @@ class MedicalCardSerializer(serializers.ModelSerializer):
     bmi = serializers.SerializerMethodField()
     bmi_status = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
+    emergency_contact = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -216,9 +217,20 @@ class MedicalCardSerializer(serializers.ModelSerializer):
             return age
         return None
 
+    def get_emergency_contact(self, obj):
+        """emergency_contact ni JSON sifatida qaytarish"""
+        import json
+        if obj.emergency_contact:
+            try:
+                return json.loads(obj.emergency_contact)
+            except (json.JSONDecodeError, TypeError):
+                return {'name': obj.emergency_contact, 'phone': '', 'relation': ''}
+        return {'name': '', 'phone': '', 'relation': ''}
+
 
 class MedicalCardUpdateSerializer(serializers.ModelSerializer):
     """Tibbiy kartani yangilash"""
+    emergency_contact = serializers.JSONField(required=False)
 
     class Meta:
         model = User
@@ -243,6 +255,13 @@ class MedicalCardUpdateSerializer(serializers.ModelSerializer):
         if value and value not in valid_types:
             raise serializers.ValidationError("Noto'g'ri qon guruhi")
         return value
+
+    def validate_emergency_contact(self, value):
+        """emergency_contact ni JSON string ga convert qilish"""
+        import json
+        if isinstance(value, dict):
+            return json.dumps(value)
+        return value or ''
 
 
 class ChangePasswordSerializer(serializers.Serializer):
