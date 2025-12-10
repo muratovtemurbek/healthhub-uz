@@ -12,14 +12,13 @@ from .serializers import NotificationSerializer
 class NotificationViewSet(viewsets.ModelViewSet):
     """Bildirishnomalar API"""
     serializer_class = NotificationSerializer
-    permission_classes = [AllowAny]  # Keyinchalik IsAuthenticated qilish
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Hozircha barcha notifications, keyinchalik user filter
-        user_id = self.request.query_params.get('user_id')
-        if user_id:
-            return Notification.objects.filter(user_id=user_id)
-        return Notification.objects.all()
+        # Foydalanuvchining bildirishnomalari
+        if self.request.user.is_authenticated:
+            return Notification.objects.filter(user=self.request.user)
+        return Notification.objects.none()
 
     def list(self, request, *args, **kwargs):
         """Bildirishnomalar ro'yxati"""
@@ -40,11 +39,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset[:50], many=True)
 
         # Statistika
-        user_id = request.query_params.get('user_id')
-        if user_id:
-            all_notifs = Notification.objects.filter(user_id=user_id)
-        else:
-            all_notifs = Notification.objects.all()
+        all_notifs = self.get_queryset()
 
         return Response({
             'notifications': serializer.data,
@@ -70,12 +65,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def mark_all_read(self, request):
         """Barcha bildirishnomalarni o'qilgan deb belgilash"""
-        user_id = request.data.get('user_id')
-
-        if user_id:
-            notifications = Notification.objects.filter(user_id=user_id, is_read=False)
-        else:
-            notifications = Notification.objects.filter(is_read=False)
+        notifications = self.get_queryset().filter(is_read=False)
 
         count = notifications.count()
         notifications.update(is_read=True, read_at=timezone.now())
@@ -87,7 +77,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def send(self, request):
-        """Yangi bildirishnoma yuborish"""
+        """Yangi bildirishnoma yuborish (admin uchun)"""
+        # Bu endpoint faqat admin uchun
+        if not request.user.is_staff:
+            return Response({
+                'error': 'Ruxsat yo\'q'
+            }, status=status.HTTP_403_FORBIDDEN)
+
         user_id = request.data.get('user_id')
         title = request.data.get('title', '')
         message = request.data.get('message', '')
@@ -112,12 +108,23 @@ class NotificationViewSet(viewsets.ModelViewSet):
             'notification': NotificationSerializer(notification).data
         }, status=status.HTTP_201_CREATED)
 
+    def create(self, request, *args, **kwargs):
+        """Yangi bildirishnoma yaratish - o'zi uchun"""
+        data = request.data.copy()
+        data['user'] = request.user.id
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 # Utility function - boshqa app lardan chaqirish uchun
-def create_notification(user_id, title, message, notif_type='system', **kwargs):
+def create_notification(user, title, message, notif_type='system', **kwargs):
     """Bildirishnoma yaratish"""
     return Notification.objects.create(
-        user_id=user_id,
+        user=user,
         type=notif_type,
         title=title,
         message=message,

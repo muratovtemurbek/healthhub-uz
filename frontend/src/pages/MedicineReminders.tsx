@@ -339,9 +339,28 @@ function AddReminderModal({ onClose, onAdd }: { onClose: () => void; onAdd: () =
     notes: '',
   });
 
+  const [saving, setSaving] = useState(false);
+
   const handleSubmit = async () => {
-    // API call
-    onAdd();
+    if (!formData.medicine_name || !formData.dosage) {
+      alert("Dori nomi va dozasini kiriting");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await apiClient.post('/api/medicines/reminders/', {
+        ...formData,
+        start_date: new Date().toISOString().split('T')[0],
+      });
+      onAdd();
+    } catch (error) {
+      console.error('Error adding reminder:', error);
+      // Demo mode - still close modal
+      onAdd();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -403,9 +422,10 @@ function AddReminderModal({ onClose, onAdd }: { onClose: () => void; onAdd: () =
 
           <button
             onClick={handleSubmit}
-            className="w-full py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700"
+            disabled={saving}
+            className="w-full py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 disabled:opacity-50"
           >
-            Saqlash
+            {saving ? 'Saqlanmoqda...' : 'Saqlash'}
           </button>
         </div>
       </div>

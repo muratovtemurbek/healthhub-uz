@@ -250,72 +250,92 @@ class PharmacyPriceViewSet(viewsets.ModelViewSet):
 
 # ============ MEDICINE REMINDERS ============
 
+from .models import MedicineReminder, ReminderLog
+
+FREQUENCY_DISPLAY = {
+    'once': 'Bir marotaba',
+    'daily': 'Har kuni',
+    'twice_daily': 'Kuniga 2 marta',
+    'three_times': 'Kuniga 3 marta',
+    'weekly': 'Haftada bir',
+    'custom': 'Maxsus',
+}
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def medicine_reminders(request):
     """Dori eslatmalari ro'yxati va yaratish"""
 
     if request.method == 'GET':
-        reminders = [
-            {
-                'id': 1,
-                'medicine_name': 'Lisinopril',
-                'dosage': '10mg - 1 tabletka',
-                'frequency': 'daily',
-                'frequency_display': 'Har kuni',
-                'times': ['08:00', '20:00'],
-                'start_date': '2024-01-01',
-                'end_date': '2024-03-01',
-                'status': 'active',
-                'with_food': True,
-                'before_food': False,
-                'notes': 'Qon bosimini nazorat qilish uchun',
-                'next_dose': '20:00',
-                'taken_today': 1,
-                'total_today': 2,
-                'streak': 15,
-            },
-            {
-                'id': 2,
-                'medicine_name': 'Vitamin D3',
-                'dosage': '1000 IU - 1 kapsula',
-                'frequency': 'daily',
-                'frequency_display': 'Har kuni',
-                'times': ['09:00'],
-                'start_date': '2024-01-01',
-                'end_date': None,
-                'status': 'active',
-                'with_food': True,
-                'before_food': False,
-                'notes': '',
-                'next_dose': 'Ertaga 09:00',
-                'taken_today': 1,
-                'total_today': 1,
-                'streak': 30,
-            },
-            {
-                'id': 3,
-                'medicine_name': 'Omeprazol',
-                'dosage': '20mg - 1 kapsula',
-                'frequency': 'twice_daily',
-                'frequency_display': 'Kuniga 2 marta',
-                'times': ['07:00', '19:00'],
-                'start_date': '2024-01-10',
-                'end_date': '2024-01-24',
-                'status': 'completed',
-                'with_food': False,
-                'before_food': True,
-                'notes': 'Ovqatdan 30 daqiqa oldin',
-                'next_dose': None,
-                'taken_today': 0,
-                'total_today': 0,
-                'streak': 14,
-            },
-        ]
+        # Foydalanuvchi eslatmalari
+        queryset = MedicineReminder.objects.filter(user=request.user)
 
         status_filter = request.GET.get('status', 'active')
         if status_filter != 'all':
-            reminders = [r for r in reminders if r['status'] == status_filter]
+            queryset = queryset.filter(status=status_filter)
+
+        reminders = []
+        for r in queryset:
+            # Bugungi statistika
+            today = timezone.now().date()
+            today_logs = ReminderLog.objects.filter(
+                reminder=r,
+                scheduled_time__date=today
+            )
+            taken_today = today_logs.filter(status='taken').count()
+            total_today = len(r.times) if r.times else 1
+
+            # Streak hisoblash
+            streak = 0
+            check_date = today
+            while True:
+                day_logs = ReminderLog.objects.filter(
+                    reminder=r,
+                    scheduled_time__date=check_date,
+                    status='taken'
+                )
+                if day_logs.exists():
+                    streak += 1
+                    check_date -= timezone.timedelta(days=1)
+                else:
+                    break
+                if streak > 100:
+                    break
+
+            # Keyingi doza
+            next_dose = None
+            if r.status == 'active' and r.times:
+                now = timezone.now().time()
+                for t in sorted(r.times):
+                    try:
+                        dose_time = timezone.datetime.strptime(t, '%H:%M').time()
+                        if dose_time > now:
+                            next_dose = t
+                            break
+                    except:
+                        pass
+                if not next_dose:
+                    next_dose = f"Ertaga {r.times[0]}" if r.times else None
+
+            reminders.append({
+                'id': r.id,
+                'medicine_name': r.medicine_name,
+                'dosage': r.dosage,
+                'frequency': r.frequency,
+                'frequency_display': FREQUENCY_DISPLAY.get(r.frequency, r.frequency),
+                'times': r.times or [],
+                'start_date': str(r.start_date),
+                'end_date': str(r.end_date) if r.end_date else None,
+                'status': r.status,
+                'with_food': r.with_food,
+                'before_food': r.before_food,
+                'notes': r.notes,
+                'next_dose': next_dose,
+                'taken_today': taken_today,
+                'total_today': total_today,
+                'streak': streak,
+            })
 
         return Response({
             'count': len(reminders),
@@ -324,21 +344,37 @@ def medicine_reminders(request):
 
     elif request.method == 'POST':
         data = request.data
-        new_reminder = {
-            'id': random.randint(100, 999),
-            'medicine_name': data.get('medicine_name'),
-            'dosage': data.get('dosage'),
-            'frequency': data.get('frequency', 'daily'),
-            'times': data.get('times', ['08:00']),
-            'start_date': data.get('start_date', str(timezone.now().date())),
-            'end_date': data.get('end_date'),
-            'status': 'active',
-            'with_food': data.get('with_food', False),
-            'before_food': data.get('before_food', False),
-            'notes': data.get('notes', ''),
-        }
 
-        return Response(new_reminder, status=status.HTTP_201_CREATED)
+        # Yangi eslatma yaratish
+        reminder = MedicineReminder.objects.create(
+            user=request.user,
+            medicine_name=data.get('medicine_name', ''),
+            dosage=data.get('dosage', ''),
+            frequency=data.get('frequency', 'daily'),
+            times=data.get('times', ['08:00']),
+            start_date=data.get('start_date', timezone.now().date()),
+            end_date=data.get('end_date'),
+            with_food=data.get('with_food', False),
+            before_food=data.get('before_food', False),
+            notes=data.get('notes', ''),
+            status='active'
+        )
+
+        return Response({
+            'id': reminder.id,
+            'medicine_name': reminder.medicine_name,
+            'dosage': reminder.dosage,
+            'frequency': reminder.frequency,
+            'frequency_display': FREQUENCY_DISPLAY.get(reminder.frequency, reminder.frequency),
+            'times': reminder.times,
+            'start_date': str(reminder.start_date),
+            'end_date': str(reminder.end_date) if reminder.end_date else None,
+            'status': reminder.status,
+            'with_food': reminder.with_food,
+            'before_food': reminder.before_food,
+            'notes': reminder.notes,
+            'message': 'Eslatma yaratildi!'
+        }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -346,34 +382,61 @@ def medicine_reminders(request):
 def medicine_reminder_detail(request, pk):
     """Bitta eslatma tafsilotlari"""
 
-    reminder = {
-        'id': pk,
-        'medicine_name': 'Lisinopril',
-        'dosage': '10mg - 1 tabletka',
-        'frequency': 'daily',
-        'frequency_display': 'Har kuni',
-        'times': ['08:00', '20:00'],
-        'start_date': '2024-01-01',
-        'end_date': '2024-03-01',
-        'status': 'active',
-        'with_food': True,
-        'before_food': False,
-        'notes': 'Qon bosimini nazorat qilish uchun',
-        'history': [
-            {'date': '2024-01-20', 'time': '08:00', 'status': 'taken', 'actual_time': '08:05'},
-            {'date': '2024-01-20', 'time': '20:00', 'status': 'taken', 'actual_time': '20:10'},
-            {'date': '2024-01-19', 'time': '08:00', 'status': 'taken', 'actual_time': '08:00'},
-            {'date': '2024-01-19', 'time': '20:00', 'status': 'skipped', 'actual_time': None},
-        ]
-    }
+    try:
+        reminder = MedicineReminder.objects.get(id=pk, user=request.user)
+    except MedicineReminder.DoesNotExist:
+        return Response({'error': 'Eslatma topilmadi'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        return Response(reminder)
+        # Tarix
+        logs = ReminderLog.objects.filter(reminder=reminder).order_by('-scheduled_time')[:20]
+        history = [{
+            'date': str(log.scheduled_time.date()),
+            'time': log.scheduled_time.strftime('%H:%M'),
+            'status': log.status,
+            'actual_time': log.actual_time.strftime('%H:%M') if log.actual_time else None,
+        } for log in logs]
+
+        return Response({
+            'id': reminder.id,
+            'medicine_name': reminder.medicine_name,
+            'dosage': reminder.dosage,
+            'frequency': reminder.frequency,
+            'frequency_display': FREQUENCY_DISPLAY.get(reminder.frequency, reminder.frequency),
+            'times': reminder.times or [],
+            'start_date': str(reminder.start_date),
+            'end_date': str(reminder.end_date) if reminder.end_date else None,
+            'status': reminder.status,
+            'with_food': reminder.with_food,
+            'before_food': reminder.before_food,
+            'notes': reminder.notes,
+            'history': history,
+        })
 
     elif request.method == 'PUT':
-        return Response({'message': 'Yangilandi', **reminder})
+        data = request.data
+        reminder.medicine_name = data.get('medicine_name', reminder.medicine_name)
+        reminder.dosage = data.get('dosage', reminder.dosage)
+        reminder.frequency = data.get('frequency', reminder.frequency)
+        reminder.times = data.get('times', reminder.times)
+        reminder.end_date = data.get('end_date', reminder.end_date)
+        reminder.with_food = data.get('with_food', reminder.with_food)
+        reminder.before_food = data.get('before_food', reminder.before_food)
+        reminder.notes = data.get('notes', reminder.notes)
+        reminder.status = data.get('status', reminder.status)
+        reminder.save()
+
+        return Response({
+            'message': 'Yangilandi',
+            'id': reminder.id,
+            'medicine_name': reminder.medicine_name,
+            'dosage': reminder.dosage,
+            'frequency': reminder.frequency,
+            'status': reminder.status,
+        })
 
     elif request.method == 'DELETE':
+        reminder.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -382,22 +445,46 @@ def medicine_reminder_detail(request, pk):
 def log_medicine_taken(request, pk):
     """Dori ichildi deb belgilash"""
 
-    action = request.data.get('action', 'taken')
+    try:
+        reminder = MedicineReminder.objects.get(id=pk, user=request.user)
+    except MedicineReminder.DoesNotExist:
+        return Response({'error': 'Eslatma topilmadi'}, status=status.HTTP_404_NOT_FOUND)
 
-    log = {
-        'id': random.randint(1000, 9999),
-        'reminder_id': pk,
-        'scheduled_time': request.data.get('scheduled_time', timezone.now().isoformat()),
-        'actual_time': timezone.now().isoformat() if action == 'taken' else None,
-        'status': action,
-        'message': {
-            'taken': 'Dori ichildi deb belgilandi ✅',
-            'skipped': "O'tkazib yuborildi",
-            'snoozed': '15 daqiqaga keyinga qoldirildi',
-        }.get(action, 'Saqlandi')
+    action = request.data.get('action', 'taken')
+    scheduled_time_str = request.data.get('scheduled_time')
+
+    # scheduled_time ni parse qilish
+    if scheduled_time_str:
+        try:
+            scheduled_time = timezone.datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
+        except:
+            scheduled_time = timezone.now()
+    else:
+        scheduled_time = timezone.now()
+
+    # Log yaratish
+    log = ReminderLog.objects.create(
+        reminder=reminder,
+        scheduled_time=scheduled_time,
+        actual_time=timezone.now() if action == 'taken' else None,
+        status=action,
+        notes=request.data.get('notes', '')
+    )
+
+    messages = {
+        'taken': 'Dori ichildi deb belgilandi',
+        'skipped': "O'tkazib yuborildi",
+        'snoozed': '15 daqiqaga keyinga qoldirildi',
     }
 
-    return Response(log, status=status.HTTP_201_CREATED)
+    return Response({
+        'id': log.id,
+        'reminder_id': pk,
+        'scheduled_time': log.scheduled_time.isoformat(),
+        'actual_time': log.actual_time.isoformat() if log.actual_time else None,
+        'status': action,
+        'message': messages.get(action, 'Saqlandi')
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
@@ -405,46 +492,80 @@ def log_medicine_taken(request, pk):
 def today_schedule(request):
     """Bugungi dori jadvali"""
 
-    schedule = [
-        {
-            'id': 1,
-            'time': '08:00',
-            'medicine_name': 'Lisinopril',
-            'dosage': '10mg',
-            'status': 'taken',
-            'taken_at': '08:05',
-            'with_food': True,
-        },
-        {
-            'id': 2,
-            'time': '09:00',
-            'medicine_name': 'Vitamin D3',
-            'dosage': '1000 IU',
-            'status': 'taken',
-            'taken_at': '09:00',
-            'with_food': True,
-        },
-        {
-            'id': 3,
-            'time': '20:00',
-            'medicine_name': 'Lisinopril',
-            'dosage': '10mg',
-            'status': 'pending',
-            'taken_at': None,
-            'with_food': True,
-        },
-    ]
+    today = timezone.now().date()
+    now = timezone.now()
+
+    # Faol eslatmalar
+    reminders = MedicineReminder.objects.filter(
+        user=request.user,
+        status='active',
+        start_date__lte=today
+    ).filter(
+        models.Q(end_date__isnull=True) | models.Q(end_date__gte=today)
+    )
+
+    schedule = []
+    for reminder in reminders:
+        if not reminder.times:
+            continue
+
+        for time_str in reminder.times:
+            try:
+                dose_time = timezone.datetime.strptime(time_str, '%H:%M').time()
+                scheduled_datetime = timezone.datetime.combine(today, dose_time)
+                if timezone.is_naive(scheduled_datetime):
+                    scheduled_datetime = timezone.make_aware(scheduled_datetime)
+
+                # Bu dozani log tekshirish
+                log = ReminderLog.objects.filter(
+                    reminder=reminder,
+                    scheduled_time__date=today,
+                    scheduled_time__hour=dose_time.hour,
+                    scheduled_time__minute=dose_time.minute
+                ).first()
+
+                if log:
+                    dose_status = log.status
+                    taken_at = log.actual_time.strftime('%H:%M') if log.actual_time else None
+                elif scheduled_datetime < now:
+                    dose_status = 'missed'
+                    taken_at = None
+                else:
+                    dose_status = 'pending'
+                    taken_at = None
+
+                schedule.append({
+                    'id': reminder.id,
+                    'time': time_str,
+                    'medicine_name': reminder.medicine_name,
+                    'dosage': reminder.dosage,
+                    'status': dose_status,
+                    'taken_at': taken_at,
+                    'with_food': reminder.with_food,
+                    'before_food': reminder.before_food,
+                })
+            except:
+                pass
+
+    # Vaqt bo'yicha tartiblash
+    schedule.sort(key=lambda x: x['time'])
+
+    # Statistika
+    taken = len([s for s in schedule if s['status'] == 'taken'])
+    total = len(schedule)
+    adherence_rate = round((taken / total) * 100) if total > 0 else 0
 
     stats = {
-        'total': len(schedule),
-        'taken': len([s for s in schedule if s['status'] == 'taken']),
+        'total': total,
+        'taken': taken,
         'pending': len([s for s in schedule if s['status'] == 'pending']),
         'skipped': len([s for s in schedule if s['status'] == 'skipped']),
-        'adherence_rate': 85,
+        'missed': len([s for s in schedule if s['status'] == 'missed']),
+        'adherence_rate': adherence_rate,
     }
 
     return Response({
-        'date': str(timezone.now().date()),
+        'date': str(today),
         'schedule': schedule,
         'stats': stats
     })
