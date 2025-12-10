@@ -59,7 +59,7 @@ export default function MedicalCard() {
 
   const fetchMedicalCard = async () => {
     try {
-      const response = await apiClient.get('/api/auth/medical-card/');
+      const response = await apiClient.get('/api/accounts/medical-card/');
       const data = response.data;
 
       // API dan kelgan ma'lumotlarni formatlash
@@ -105,7 +105,7 @@ export default function MedicalCard() {
         emergency_contact: editData.emergency_contact
       };
 
-      const response = await apiClient.patch('/api/auth/medical-card/', payload);
+      const response = await apiClient.patch('/api/accounts/medical-card/', payload);
 
       if (response.data.medical_card) {
         const data = response.data.medical_card;

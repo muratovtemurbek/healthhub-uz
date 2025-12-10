@@ -1,86 +1,80 @@
 API_BASE_URL = https://healthhub-uz-production.up.railway.app
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/profile/
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/profile/
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
 overrideMethod @ hook.js:608
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/dashboard/widgets/
 overrideMethod @ hook.js:608
-index-DJoX9Owl.js:16 📤 API Request: POST /api/ai/consultations/analyze/
-hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/ai/consultations/analyze/
-overrideMethod @ hook.js:608
-hook.js:608 AI Error: 
-API_BASE_URL = https://healthhub-uz-production.up.railway.app
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/profile/
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/profile/
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
 overrideMethod @ hook.js:608
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/dashboard/widgets/
 overrideMethod @ hook.js:608
-index-DJoX9Owl.js:16 📤 API Request: POST /api/ai/consultations/analyze/
-hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/ai/consultations/analyze/
+index-CllZuCSW.js:16 📤 API Request: GET /api/chat/rooms/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/chat/rooms/
 overrideMethod @ hook.js:608
-hook.js:608 AI Error: Aa
+index-CllZuCSW.js:16 Using demo chat rooms
+index-CllZuCSW.js:16 📤 API Request: GET /api/chat/rooms/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/chat/rooms/
 overrideMethod @ hook.js:608
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/profile/
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
-hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
-overrideMethod @ hook.js:608
-(anonymous) @ index-DJoX9Owl.js:16
+index-CllZuCSW.js:16 Using demo chat rooms
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/profile/
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/dashboard/widgets/
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/dashboard/widgets/
 overrideMethod @ hook.js:608
-(anonymous) @ index-DJoX9Owl.js:16
-index-DJoX9Owl.js:16 📤 API Request: GET /api/accounts/profile/
-index-DJoX9Owl.js:16 Air quality check skipped
 hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
 overrideMethod @ hook.js:608
-index-DJoX9Owl.js:16 📤 API Request: POST /api/auth/register/
-index-DJoX9Owl.js:16 📥 API Response: 201 /api/auth/register/
-index-DJoX9Owl.js:16 📤 API Request: POST /api/telegram/generate/
-index-DJoX9Owl.js:16 📥 API Response: 200 /api/telegram/generate/
-index-DJoX9Owl.js:16 📤 API Request: POST /api/telegram/verify/
-index-DJoX9Owl.js:16 📥 API Response: 200 /api/telegram/verify/
-index-DJoX9Owl.js:16 📤 API Request: POST /api/telegram/verify/
-index-DJoX9Owl.js:16 📥 API Response: 200 /api/telegram/verify/
-index-DJoX9Owl.js:16 📤 API Request: POST /api/telegram/verify/
-index-DJoX9Owl.js:16 📥 API Response: 200 /api/telegram/verify/
-Request URL
-https://healthhub-uz-production.up.railway.app/api/ai/consultations/analyze/
-Request method
-POST
-Status code
-401 Unauthorized
-Remote address
-66.33.22.90:443
-Referrer policy
-same-origin
-access-control-allow-credentials
-true
-access-control-allow-origin
-https://healthhub-uz-production.up.railway.app
-allow
-POST, OPTIONS
-content-length
-51
-content-type
-application/json
-cross-origin-opener-policy
-same-origin
-date
-Sun, 07 Dec 2025 13:55:21 GMT
-referrer-policy
-same-origin
-server
-railway-edge
-vary
-Accept, origin
-www-authenticate
-Bearer realm="api"
-x-content-type-options
-nosniff
-x-frame-options
-DENY
-x-railway-edge
-railway/europe-west4-drams3a
-x-railway-request-id
-DxOK1CcbR-KS80lnYqdHTg
-
+index-CllZuCSW.js:16 📤 API Request: GET /api/accounts/profile/
+index-CllZuCSW.js:16 Air quality check skipped
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/accounts/profile/
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: GET /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Medical card fetch error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
+overrideMethod @ hook.js:608
+index-CllZuCSW.js:16 📤 API Request: PATCH /api/auth/medical-card/
+hook.js:608 📥 Response error: ERR_BAD_REQUEST /api/auth/medical-card/
+overrideMethod @ hook.js:608
+hook.js:608 Save error: Aa
