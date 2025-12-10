@@ -49,25 +49,14 @@ export default function AdminUsers() {
       const allUsers = Array.isArray(res.data) ? res.data : (res.data.results || []);
       // Faqat bemorlarni filterlash
       const patients = allUsers.filter((u: User) => u.user_type === 'patient');
-      setUsers(patients.length > 0 ? patients : getDemoUsers());
+      setUsers(patients);
     } catch (error) {
       console.error('Error loading users:', error);
-      setUsers(getDemoUsers());
+      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getDemoUsers = (): User[] => [
-    { id: '1', email: 'alisher@example.com', first_name: 'Alisher', last_name: 'Karimov', phone: '+998901234567', user_type: 'patient', is_active: true, date_joined: '2024-01-15', city: 'Toshkent' },
-    { id: '2', email: 'madina@example.com', first_name: 'Madina', last_name: 'Rahimova', phone: '+998907654321', user_type: 'patient', is_active: true, date_joined: '2024-01-18', city: 'Samarqand' },
-    { id: '3', email: 'bobur@example.com', first_name: 'Bobur', last_name: 'Alimov', phone: '+998901112233', user_type: 'patient', is_active: false, date_joined: '2024-01-20', city: 'Buxoro' },
-    { id: '4', email: 'nilufar@example.com', first_name: 'Nilufar', last_name: 'Saidova', phone: '+998905556677', user_type: 'patient', is_active: true, date_joined: '2024-01-22', city: 'Farg\'ona' },
-    { id: '5', email: 'jasur@example.com', first_name: 'Jasur', last_name: 'Toshmatov', phone: '+998909998877', user_type: 'patient', is_active: true, date_joined: '2024-01-25', city: 'Andijon' },
-    { id: '6', email: 'gulnora@example.com', first_name: 'Gulnora', last_name: 'Karimova', phone: '+998903334455', user_type: 'patient', is_active: true, date_joined: '2024-02-01', city: 'Namangan' },
-    { id: '7', email: 'sardor@example.com', first_name: 'Sardor', last_name: 'Mahmudov', phone: '+998906667788', user_type: 'patient', is_active: false, date_joined: '2024-02-05', city: 'Qarshi' },
-    { id: '8', email: 'dilnoza@example.com', first_name: 'Dilnoza', last_name: 'Azimova', phone: '+998901122334', user_type: 'patient', is_active: true, date_joined: '2024-02-10', city: 'Toshkent' },
-  ];
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =

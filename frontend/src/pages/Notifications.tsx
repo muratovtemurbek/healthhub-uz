@@ -16,60 +16,9 @@ interface Notification {
   is_read: boolean;
 }
 
-const DEMO_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    type: 'appointment',
-    title: 'Qabul eslatmasi',
-    message: 'Ertaga soat 10:00 da Dr. Akbar Karimov qabuli',
-    time: '10 minut oldin',
-    is_read: false
-  },
-  {
-    id: '2',
-    type: 'message',
-    title: 'Yangi xabar',
-    message: 'Dr. Malika Rahimova sizga xabar yubordi',
-    time: '1 soat oldin',
-    is_read: false
-  },
-  {
-    id: '3',
-    type: 'payment',
-    title: "To'lov muvaffaqiyatli",
-    message: "150,000 so'm to'lov qabul qilindi",
-    time: '2 soat oldin',
-    is_read: true
-  },
-  {
-    id: '4',
-    type: 'health',
-    title: 'Havo sifati ogohlantirish',
-    message: "Bugun havo sifati past. Astma bemorlari ehtiyot bo'lsin",
-    time: '5 soat oldin',
-    is_read: true
-  },
-  {
-    id: '5',
-    type: 'system',
-    title: 'Yangilanish',
-    message: 'Ilova yangilandi. Yangi funksiyalar qo\'shildi',
-    time: 'Kecha',
-    is_read: true
-  },
-  {
-    id: '6',
-    type: 'appointment',
-    title: 'Qabul tasdiqlandi',
-    message: 'Dr. Bobur Alimov qabulingizni tasdiqladi',
-    time: '2 kun oldin',
-    is_read: true
-  }
-];
-
 export default function Notifications() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>(DEMO_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const getIcon = (type: string) => {
     switch (type) {

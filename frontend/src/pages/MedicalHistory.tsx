@@ -18,58 +18,9 @@ interface HistoryItem {
   test_results?: string;
 }
 
-const DEMO_HISTORY: HistoryItem[] = [
-  {
-    id: '1',
-    date: '2024-01-15',
-    type: 'appointment',
-    doctor_name: 'Dr. Akbar Karimov',
-    specialty: 'Kardiolog',
-    diagnosis: 'Gipertoniya',
-    notes: "Qon bosimi yuqori. Dori buyurildi. 2 haftadan so'ng qayta ko'rik.",
-    prescriptions: ['Lisinopril 10mg', 'Aspirin 75mg']
-  },
-  {
-    id: '2',
-    date: '2024-01-10',
-    type: 'test',
-    doctor_name: 'Dr. Malika Rahimova',
-    specialty: 'Terapevt',
-    test_results: 'Qon tahlili: Gemoglobin - 14.2, Leykositlar - 6.8',
-    notes: 'Barcha ko\'rsatkichlar normal'
-  },
-  {
-    id: '3',
-    date: '2024-01-05',
-    type: 'prescription',
-    doctor_name: 'Dr. Bobur Alimov',
-    specialty: 'Nevrolog',
-    diagnosis: "Migren bosh og'rig'i",
-    prescriptions: ['Sumatriptan 50mg', 'Ibuprofen 400mg']
-  },
-  {
-    id: '4',
-    date: '2023-12-20',
-    type: 'appointment',
-    doctor_name: 'Dr. Nilufar Saidova',
-    specialty: 'Terapevt',
-    diagnosis: 'ORVI',
-    notes: "Sovuq olgani. Uy rejimi, ko'p suyuqlik ichish."
-  },
-  {
-    id: '5',
-    date: '2023-12-10',
-    type: 'test',
-    doctor_name: 'Dr. Jasur Toshmatov',
-    specialty: 'Endokrinolog',
-    test_results: 'Qalqonsimon bez: TSH - 2.1, T3 - 1.2, T4 - 8.5',
-    notes: 'Normal doirada'
-  }
-];
-
 export default function MedicalHistory() {
   const navigate = useNavigate();
-  const [history] = useState<HistoryItem[]>(DEMO_HISTORY);
+  const [history] = useState<HistoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'appointment' | 'prescription' | 'test'>('all');
   const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);

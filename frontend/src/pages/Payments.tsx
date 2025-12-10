@@ -16,57 +16,9 @@ interface Payment {
   service: string;
 }
 
-const DEMO_PAYMENTS: Payment[] = [
-  {
-    id: '1',
-    date: '2024-01-15',
-    amount: 150000,
-    status: 'completed',
-    method: 'payme',
-    doctor_name: 'Dr. Akbar Karimov',
-    service: 'Kardiolog konsultatsiya'
-  },
-  {
-    id: '2',
-    date: '2024-01-10',
-    amount: 80000,
-    status: 'completed',
-    method: 'click',
-    doctor_name: 'Dr. Malika Rahimova',
-    service: 'Terapevt konsultatsiya'
-  },
-  {
-    id: '3',
-    date: '2024-01-05',
-    amount: 120000,
-    status: 'completed',
-    method: 'cash',
-    doctor_name: 'Dr. Bobur Alimov',
-    service: 'Nevrolog konsultatsiya'
-  },
-  {
-    id: '4',
-    date: '2024-01-02',
-    amount: 200000,
-    status: 'failed',
-    method: 'payme',
-    doctor_name: 'Dr. Nilufar Saidova',
-    service: 'Pediatr konsultatsiya'
-  },
-  {
-    id: '5',
-    date: '2023-12-28',
-    amount: 100000,
-    status: 'completed',
-    method: 'click',
-    doctor_name: 'Dr. Jasur Toshmatov',
-    service: 'Dermatolog konsultatsiya'
-  }
-];
-
 export default function Payments() {
   const navigate = useNavigate();
-  const [payments, setPayments] = useState<Payment[]>(DEMO_PAYMENTS);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [filter, setFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
 
   const getStatusConfig = (status: string) => {
