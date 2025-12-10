@@ -415,73 +415,257 @@ class AIConsultationViewSet(viewsets.ViewSet):
             return Response({'success': False, 'error': str(e)}, status=500)
 
     def _analyze_with_gemini(self, symptoms: str, api_key: str) -> dict:
-        """Gemini API bilan tahlil"""
+        """Gemini API bilan tahlil - aniq kasallik tahlili"""
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
 
-        prompt = f"""
-Sen professional tibbiy AI assistantsan. O'zbek tilida javob ber.
+        prompt = f"""Sen tajribali O'zbek shifokorisisan. Bemorning alomatlarini tahlil qil va aniq javob ber.
 
-Bemor alomatlari: {symptoms}
+BEMOR ALOMATLARI: {symptoms}
 
-Quyidagi JSON formatida javob ber (faqat JSON):
+MUHIM: Har bir alomatni alohida tahlil qil va mumkin bo'lgan kasalliklarni aniqlashtirib ber.
+
+Quyidagi JSON formatida javob ber (FAQAT JSON, boshqa hech narsa yozma):
 {{
-    "analysis": "Alomatlar tahlili",
+    "analysis": "Sizning alomatlaringiz tahlili: [aniq va batafsil tahlil - 2-3 jumla]. Bu alomatlar [kasallik nomlari] ga xos bo'lishi mumkin.",
+    "possible_conditions": [
+        {{"name": "Kasallik nomi 1", "probability": 75, "description": "Qisqa tavsif"}},
+        {{"name": "Kasallik nomi 2", "probability": 45, "description": "Qisqa tavsif"}}
+    ],
     "severity": "past/o'rta/yuqori/jiddiy",
-    "first_aid": ["1-yordam 1", "1-yordam 2"],
-    "home_treatment": ["Uy davolash 1", "Uy davolash 2"],
-    "warning_signs": ["Ogohlantirish 1", "Ogohlantirish 2"],
-    "specialization": "Shifokor turi",
-    "specialization_key": "terapevt/kardiolog/nevrolog/..."
+    "severity_reason": "Nima uchun bu daraja",
+    "first_aid": [
+        "Birinchi yordam 1 - aniq ko'rsatma",
+        "Birinchi yordam 2 - aniq ko'rsatma"
+    ],
+    "home_treatment": [
+        "Uyda qilish kerak 1",
+        "Uyda qilish kerak 2"
+    ],
+    "warning_signs": [
+        "Agar [belgi] bo'lsa - darhol shifokorga boring",
+        "Agar [belgi] kuchaysa - tez yordam chaqiring"
+    ],
+    "when_to_see_doctor": "Qachon shifokorga borish kerak - aniq vaqt oralig'i",
+    "specialization": "Tavsiya etiladigan shifokor turi (O'zbek tilida)",
+    "specialization_key": "terapevt/kardiolog/nevrolog/pulmonolog/gastroenterolog/dermatolog/lor/ortoped/oftalmolog/endokrinolog",
+    "tests_recommended": ["Tavsiya etiladigan tahlil 1", "Tahlil 2"],
+    "lifestyle_tips": ["Hayot tarzi bo'yicha maslahat 1", "Maslahat 2"]
 }}
-"""
+
+Javobni O'ZBEK TILIDA ber. Kasallik nomlarini O'zbek va Lotin tillarida ber (masalan: "Bronxit (Bronchitis)").
+Har bir kasallik uchun ehtimollik foizini ber (0-100).
+Jiddiy holatlarni aniq belgilab ber."""
+
         response = model.generate_content(prompt)
         text = response.text.strip()
 
         import json
-        if text.startswith('```'):
-            text = text.split('```')[1]
-            if text.startswith('json'):
-                text = text[4:]
+        import re
 
-        return json.loads(text)
+        # JSON ni ajratib olish
+        if '```' in text:
+            # ```json ... ``` formatidan olish
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
+            if match:
+                text = match.group(1).strip()
+
+        # Agar hali ham JSON boshlanmasa
+        if not text.startswith('{'):
+            # Birinchi { dan oxirgi } gacha olish
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                text = text[start:end+1]
+
+        result = json.loads(text)
+
+        # Default qiymatlar
+        if 'possible_conditions' not in result:
+            result['possible_conditions'] = []
+        if 'severity' not in result:
+            result['severity'] = "o'rta"
+        if 'specialization_key' not in result:
+            result['specialization_key'] = 'terapevt'
+
+        return result
 
     def _local_analysis(self, symptoms: str) -> dict:
-        """Lokal tahlil"""
+        """Lokal tahlil - yaxshilangan"""
         symptoms_lower = symptoms.lower()
 
-        if any(w in symptoms_lower for w in ['yurak', 'ko\'krak', 'nafas']):
+        # Shoshilinch holatlar
+        if any(w in symptoms_lower for w in ['hushdan ket', 'tutqanoq', 'qon ket', 'nafas olmayman']):
             return {
-                'analysis': 'Ko\'krak og\'rig\'i yurak muammolarini ko\'rsatishi mumkin.',
+                'analysis': 'SHOSHILINCH HOLAT! Bu alomatlar jiddiy tibbiy yordamni talab qiladi. Darhol 103 ga qo\'ng\'iroq qiling!',
+                'possible_conditions': [
+                    {'name': 'Shoshilinch tibbiy holat', 'probability': 90, 'description': 'Darhol yordam kerak'}
+                ],
+                'severity': 'jiddiy',
+                'severity_reason': 'Hayotiy xavfli alomatlar',
+                'first_aid': ['103 ga DARHOL qo\'ng\'iroq qiling!', 'Bemorni yoniga yotqizing', 'Nafas yo\'llarini tekshiring'],
+                'warning_signs': ['Bu shoshilinch holat - o\'z-o\'zini davolamang!'],
+                'when_to_see_doctor': 'HOZIROQ - Tez tibbiy yordam kerak!',
+                'specialization': 'Tez yordam',
+                'specialization_key': 'terapevt'
+            }
+
+        # Yurak va nafas
+        if any(w in symptoms_lower for w in ['yurak', 'ko\'krak og\'ri', 'nafas qisil', 'yurak uris']):
+            return {
+                'analysis': 'Sizning alomatlaringiz yurak-qon tomir tizimi bilan bog\'liq bo\'lishi mumkin. Ko\'krak og\'rig\'i va nafas qisilishi jiddiy tekshiruvni talab qiladi.',
+                'possible_conditions': [
+                    {'name': 'Stenokardiya (Angina)', 'probability': 60, 'description': 'Yurak mushagiga qon yetishmovchiligi'},
+                    {'name': 'Aritmiya', 'probability': 45, 'description': 'Yurak urishi buzilishi'},
+                    {'name': 'Gipertenziya (Yuqori qon bosimi)', 'probability': 40, 'description': 'Qon bosimi oshishi'}
+                ],
                 'severity': 'yuqori',
-                'first_aid': ['O\'tiring va dam oling', '103 ga qo\'ng\'iroq qiling'],
+                'severity_reason': 'Yurak va nafas alomatlari jiddiy tekshiruvni talab qiladi',
+                'first_aid': ['O\'tiring va dam oling', 'Tor kiyimlarni bo\'shating', 'Toza havo kiriting', 'Yomonlashsa 103 ga qo\'ng\'iroq qiling'],
+                'home_treatment': ['Og\'ir jismoniy ishlardan saqlaning', 'Stress kamaytiring', 'Tuz iste\'molini kamaytiring'],
+                'warning_signs': ['Og\'riq 15 daqiqadan oshsa', 'Nafas olish juda qiyinlashsa', 'Bosh aylanishi yoki hushdan ketish bo\'lsa'],
+                'when_to_see_doctor': 'BUGUN - 24 soat ichida kardiologga ko\'rining',
                 'specialization': 'Kardiolog',
-                'specialization_key': 'kardiolog'
+                'specialization_key': 'kardiolog',
+                'tests_recommended': ['EKG (Elektrokardiogramma)', 'Yurak UZI (Exokardiografiya)', 'Qon bosimi monitoringi']
             }
-        elif any(w in symptoms_lower for w in ['bosh', 'migren']):
+
+        # Bosh og'rig'i
+        if any(w in symptoms_lower for w in ['bosh og\'ri', 'migren', 'bosh aylan', 'bosh']):
             return {
-                'analysis': 'Bosh og\'rig\'i stress yoki bosim sababli bo\'lishi mumkin.',
+                'analysis': 'Bosh og\'rig\'i va bosh aylanishi turli sabablarga ko\'ra yuzaga kelishi mumkin: stress, uyqusizlik, qon bosimi o\'zgarishi yoki migren.',
+                'possible_conditions': [
+                    {'name': 'Migren', 'probability': 55, 'description': 'Kuchli, ko\'pincha bir tomonlama bosh og\'rig\'i'},
+                    {'name': 'Kuchlanish bosh og\'rig\'i', 'probability': 50, 'description': 'Stress va charchoq sababli'},
+                    {'name': 'Gipertenziya', 'probability': 35, 'description': 'Yuqori qon bosimi sababli'}
+                ],
                 'severity': 'o\'rta',
-                'first_aid': ['Dam oling', 'Suv iching', 'Paratsetamol iching'],
+                'severity_reason': 'Aksariyat bosh og\'riqlari xavfli emas, lekin tekshiruv tavsiya etiladi',
+                'first_aid': ['Qorong\'i, tinch xonada dam oling', 'Peshonaga sovuq kompress qo\'ying', 'Ko\'p suv iching', 'Paratsetamol 500mg ichishingiz mumkin'],
+                'home_treatment': ['7-8 soat uxlang', 'Ekranlarga kam qarang', 'Toza havoda yuring'],
+                'warning_signs': ['Og\'riq juda kuchli va to\'satdan boshlansa', 'Qusish yoki ko\'rish buzilishi bo\'lsa', '3 kundan oshsa'],
+                'when_to_see_doctor': '3 kun ichida - agar og\'riq davom etsa yoki kuchaysa',
                 'specialization': 'Nevrolog',
-                'specialization_key': 'nevrolog'
+                'specialization_key': 'nevrolog',
+                'tests_recommended': ['Qon bosimi o\'lchash', 'Ko\'z tekshiruvi', 'Zarur bo\'lsa - bosh MRT']
             }
-        elif any(w in symptoms_lower for w in ['isitma', 'gripp']):
+
+        # Isitma va gripp
+        if any(w in symptoms_lower for w in ['isitma', 'gripp', 'shamolla', 'sovuq', 'yo\'tal', 'burun']):
             return {
-                'analysis': 'Isitma infeksiya belgisi bo\'lishi mumkin.',
+                'analysis': 'Sizning alomatlaringiz virusli infeksiya (ORVI) yoki grippga xos. Isitma organizmning infeksiyaga qarshi kurash belgisidir.',
+                'possible_conditions': [
+                    {'name': 'ORVI (Shamollash)', 'probability': 70, 'description': 'Virusli yuqori nafas yo\'llari infeksiyasi'},
+                    {'name': 'Gripp', 'probability': 50, 'description': 'Grip virusi infeksiyasi'},
+                    {'name': 'Sinuzit', 'probability': 30, 'description': 'Burun bo\'shliqlari yallig\'lanishi'}
+                ],
                 'severity': 'o\'rta',
-                'first_aid': ['Ko\'p suyuqlik iching', '38.5°C dan oshsa paratsetamol'],
+                'severity_reason': 'Aksariyat virusli infeksiyalar 5-7 kunda o\'tadi',
+                'first_aid': ['Ko\'p iliq suyuqlik iching (choy, suv)', '38.5°C dan oshsa paratsetamol iching', 'Dam oling, uyda qoling'],
+                'home_treatment': ['Asal va limonli choy', 'Burunni tuzli suv bilan yuvish', 'Xonani shamollating', 'Vitaminlar (C vitamini)'],
+                'warning_signs': ['Harorat 39°C dan oshsa', '5 kundan keyin yaxshilanmasa', 'Nafas olish qiyinlashsa'],
+                'when_to_see_doctor': '3-5 kun - agar alomatlar yaxshilanmasa',
                 'specialization': 'Terapevt',
-                'specialization_key': 'terapevt'
+                'specialization_key': 'terapevt',
+                'tests_recommended': ['Umumiy qon tahlili', 'Zarur bo\'lsa - ko\'krak rentgeni']
             }
-        else:
+
+        # Qorin og'rig'i
+        if any(w in symptoms_lower for w in ['qorin', 'oshqozon', 'ich', 'ko\'ngil aynish', 'qusish']):
             return {
-                'analysis': f'Sizning alomatlaringiz: "{symptoms}". Shifokorga murojaat qiling.',
-                'severity': 'past',
-                'first_aid': ['Dam oling', 'Suyuqlik iching'],
-                'specialization': 'Terapevt',
-                'specialization_key': 'terapevt'
+                'analysis': 'Qorin og\'rig\'i va hazm tizimi bilan bog\'liq alomatlar. Bu gastrit, zaharlanish yoki icak infeksiyasi bo\'lishi mumkin.',
+                'possible_conditions': [
+                    {'name': 'Gastrit', 'probability': 55, 'description': 'Oshqozon yallig\'lanishi'},
+                    {'name': 'Ovqat zaharlanishi', 'probability': 45, 'description': 'Sifatsiz ovqatdan'},
+                    {'name': 'Icak infeksiyasi', 'probability': 35, 'description': 'Virusli yoki bakterial'}
+                ],
+                'severity': 'o\'rta',
+                'severity_reason': 'Aksariyat hazm muammolari 1-2 kunda yaxshilanadi',
+                'first_aid': ['Ovqat yemang (6-12 soat)', 'Oz-ozdan suv yoki Regidron iching', 'Yoting va dam oling'],
+                'home_treatment': ['Yengil dieta (guruch, banan, tost)', 'Qovurilgan va yog\'li ovqatdan saqlaning', 'Smekta yoki Aktivlangan ko\'mir'],
+                'warning_signs': ['Og\'riq juda kuchli va to\'satdan boshlansa', 'Qonda qusish yoki ich ketish', '24 soatdan keyin yaxshilanmasa'],
+                'when_to_see_doctor': '1-2 kun - agar yaxshilanmasa',
+                'specialization': 'Gastroenterolog',
+                'specialization_key': 'gastroenterolog',
+                'tests_recommended': ['Qorin UZI', 'Umumiy qon tahlili']
             }
+
+        # Teri muammolari
+        if any(w in symptoms_lower for w in ['teri', 'toshma', 'qichish', 'allergiya', 'yara']):
+            return {
+                'analysis': 'Teri bilan bog\'liq alomatlar allergik reaksiya, dermatit yoki boshqa teri kasalliklari bo\'lishi mumkin.',
+                'possible_conditions': [
+                    {'name': 'Allergik dermatit', 'probability': 60, 'description': 'Allergik teri reaksiyasi'},
+                    {'name': 'Qoshqimiq (Ekzema)', 'probability': 40, 'description': 'Surunkali teri kasalligi'},
+                    {'name': 'Urtikaria', 'probability': 35, 'description': 'Allergik toshma'}
+                ],
+                'severity': 'past',
+                'severity_reason': 'Aksariyat teri muammolari xavfli emas',
+                'first_aid': ['Qichimang - zararlashi mumkin', 'Sovuq kompress qo\'ying', 'Antihistamin dori (Suprastin, Loratadin)'],
+                'home_treatment': ['Namlantiruvchi krem ishlating', 'Issiq vannadan saqlaning', 'Allergen bo\'lishi mumkin bo\'lgan narsalarni aniqlang'],
+                'warning_signs': ['Yuz va tomoq shishsa', 'Nafas olish qiyinlashsa', 'Toshma butun tanaga tarqalsa'],
+                'when_to_see_doctor': '3-5 kun - agar yaxshilanmasa',
+                'specialization': 'Dermatolog',
+                'specialization_key': 'dermatolog',
+                'tests_recommended': ['Allergiya testlari', 'Teri surtmasi']
+            }
+
+        # Bo'g'im va suyak og'rig'i
+        if any(w in symptoms_lower for w in ['bo\'g\'im', 'bel', 'suyak', 'tizza', 'oyoq', 'qo\'l og\'ri']):
+            return {
+                'analysis': 'Bo\'g\'im va suyak og\'riqlari artrit, artroz yoki muskulyar muammolar sababli bo\'lishi mumkin.',
+                'possible_conditions': [
+                    {'name': 'Osteoartroz', 'probability': 50, 'description': 'Bo\'g\'im tog\'ay yeyilishi'},
+                    {'name': 'Artrit', 'probability': 40, 'description': 'Bo\'g\'im yallig\'lanishi'},
+                    {'name': 'Muskulyar og\'riq', 'probability': 45, 'description': 'Mushak charchoq yoki shikast'}
+                ],
+                'severity': 'o\'rta',
+                'severity_reason': 'Bo\'g\'im muammolari hayot sifatiga ta\'sir qiladi',
+                'first_aid': ['Og\'riq joyini dam oldiring', 'Sovuq kompress (15 daqiqa)', 'Ibuprofen yoki Diklofenak ishlating'],
+                'home_treatment': ['Yengil mashqlar va cho\'zish', 'Ortiqcha vazndan qutulish', 'Issiq vanna'],
+                'warning_signs': ['Shishish va qizarish bo\'lsa', 'Isitma bilan birga bo\'lsa', 'Harakat qila olmasa'],
+                'when_to_see_doctor': '1 hafta - agar yaxshilanmasa',
+                'specialization': 'Ortoped yoki Revmatolog',
+                'specialization_key': 'ortoped',
+                'tests_recommended': ['Rentgen', 'Bo\'g\'im UZI', 'Revmatik testlar']
+            }
+
+        # Umumiy holsizlik
+        if any(w in symptoms_lower for w in ['holsiz', 'charchoq', 'kuchsiz', 'tez charchay']):
+            return {
+                'analysis': 'Holsizlik va charchoq ko\'p sabablarga ko\'ra bo\'lishi mumkin: anemiya, vitamin yetishmovchiligi, qalqonsimon bez muammolari yoki stress.',
+                'possible_conditions': [
+                    {'name': 'Anemiya (Kamqonlik)', 'probability': 50, 'description': 'Qonda gemoglobin yetishmasligi'},
+                    {'name': 'Vitamin D yetishmovchiligi', 'probability': 45, 'description': 'Vitamin tanqisligi'},
+                    {'name': 'Gipotireoz', 'probability': 30, 'description': 'Qalqonsimon bez yetishmovchiligi'}
+                ],
+                'severity': 'past',
+                'severity_reason': 'Tekshiruv kerak, lekin shoshilinch emas',
+                'first_aid': ['Dam oling va yetarli uxlang', 'Temir va vitamin boyitilgan ovqatlar yeng', 'Suv iching'],
+                'home_treatment': ['7-8 soat uyqu', 'Qizil go\'sht, jigar, ko\'katlar yeng', 'Quyosh nurida bo\'ling (Vitamin D)'],
+                'warning_signs': ['Tez yurak urishi', 'Nafas qisilishi', 'Bosh aylanishi'],
+                'when_to_see_doctor': '1-2 hafta - tahlillar topshiring',
+                'specialization': 'Terapevt',
+                'specialization_key': 'terapevt',
+                'tests_recommended': ['Umumiy qon tahlili', 'Temir darajasi', 'Vitamin D', 'Qalqonsimon bez gormonlari']
+            }
+
+        # Default javob
+        return {
+            'analysis': f'Sizning alomatlaringiz ("{symptoms}") turli kasalliklarga xos bo\'lishi mumkin. Aniq tashxis uchun shifokorga ko\'rining.',
+            'possible_conditions': [
+                {'name': 'Umumiy holat', 'probability': 50, 'description': 'Tekshiruv kerak'}
+            ],
+            'severity': 'past',
+            'severity_reason': 'Aniq tashxis uchun ko\'proq ma\'lumot kerak',
+            'first_aid': ['Dam oling', 'Ko\'p suyuqlik iching', 'Alomatlarni kuzatib boring'],
+            'home_treatment': ['Sog\'lom ovqatlaning', 'Yetarli uxlang'],
+            'warning_signs': ['Alomatlar kuchaysa', 'Yangi alomatlar paydo bo\'lsa'],
+            'when_to_see_doctor': '3-5 kun ichida - agar yaxshilanmasa',
+            'specialization': 'Terapevt',
+            'specialization_key': 'terapevt',
+            'tests_recommended': ['Umumiy qon tahlili', 'Siydik tahlili']
+        }
 
     def _find_doctors(self, specialization_key: str) -> list:
         """Shifokorlarni topish"""
