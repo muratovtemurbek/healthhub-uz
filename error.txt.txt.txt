@@ -1,33 +1,61 @@
-API_BASE_URL = https://healthhub-uz-production.up.railway.app
-index-B7g-6pFo.js:16 📤 API Request: POST /api/auth/login/
-hook.js:608 📥 Response error: 400 /api/auth/login/
-overrideMethod @ hook.js:608
-(anonymous) @ index-B7g-6pFo.js:16
-Promise.then
-_request @ index-B7g-6pFo.js:16
-request @ index-B7g-6pFo.js:15
-(anonymous) @ index-B7g-6pFo.js:16
-(anonymous) @ index-B7g-6pFo.js:11
-onSubmit @ index-B7g-6pFo.js:16
-yd @ index-B7g-6pFo.js:8
-(anonymous) @ index-B7g-6pFo.js:8
-M @ index-B7g-6pFo.js:8
-wd @ index-B7g-6pFo.js:8
-up @ index-B7g-6pFo.js:9
-cp @ index-B7g-6pFo.js:9
-index-B7g-6pFo.js:16 📤 API Request: POST /api/auth/login/
-hook.js:608 📥 Response error: 400 /api/auth/login/
-overrideMethod @ hook.js:608
-(anonymous) @ index-B7g-6pFo.js:16
-Promise.then
-_request @ index-B7g-6pFo.js:16
-request @ index-B7g-6pFo.js:15
-(anonymous) @ index-B7g-6pFo.js:16
-(anonymous) @ index-B7g-6pFo.js:11
-onSubmit @ index-B7g-6pFo.js:16
-yd @ index-B7g-6pFo.js:8
-(anonymous) @ index-B7g-6pFo.js:8
-M @ index-B7g-6pFo.js:8
-wd @ index-B7g-6pFo.js:8
-up @ index-B7g-6pFo.js:9
-cp @ index-B7g-6pFo.js:9
+hook.js:608 Vaqtlarni yuklashda xatolik: 
+Ra
+code
+: 
+"ERR_BAD_REQUEST"
+config
+: 
+{transitional: {…}, adapter: Array(3), transformRequest: Array(1), transformResponse: Array(1), timeout: 0, …}
+message
+: 
+"Request failed with status code 404"
+name
+: 
+"AxiosError"
+request
+: 
+XMLHttpRequest {onreadystatechange: null, readyState: 4, timeout: 0, withCredentials: false, upload: XMLHttpRequestUpload, …}
+response
+: 
+{data: '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta ht…d 404 page.\n    </p>\n  </footer>\n</body>\n</html>\n', status: 404, statusText: '', headers: Do, config: {…}, …}
+status
+: 
+404
+stack
+: 
+"AxiosError: Request failed with status code 404\n    at No (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:13:1086)\n    at XMLHttpRequest.g (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:13:5605)\n    at ws.request (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:15:2000)\n    at async x (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:16:56829)"
+[[Prototype]]
+: 
+Error
+overrideMethod	@	hook.js:608
+hook.js:608 Booking xatosi: 
+Ra
+code
+: 
+"ERR_BAD_REQUEST"
+config
+: 
+{transitional: {…}, adapter: Array(3), transformRequest: Array(1), transformResponse: Array(1), timeout: 0, …}
+message
+: 
+"Request failed with status code 405"
+name
+: 
+"AxiosError"
+request
+: 
+XMLHttpRequest {onreadystatechange: null, readyState: 4, timeout: 0, withCredentials: false, upload: XMLHttpRequestUpload, …}
+response
+: 
+{data: {…}, status: 405, statusText: '', headers: Do, config: {…}, …}
+status
+: 
+405
+stack
+: 
+"AxiosError: Request failed with status code 405\n    at No (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:13:1086)\n    at XMLHttpRequest.g (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:13:5605)\n    at ws.request (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:15:2000)\n    at async onClick (https://healthhub-uz-production.up.railway.app/assets/index-JhgCBKnQ.js:16:63783)"
+[[Prototype]]
+: 
+Error
+overrideMethod	@	hook.js:608
+﻿

@@ -72,7 +72,7 @@ export default function BookAppointment() {
 
   const fetchTimeSlots = async (date: string) => {
     try {
-      const res = await api.get(`/appointments/available-slots/${doctorId}/`, {
+      const res = await api.get(`/appointments/slots/${doctorId}/`, {
         params: { date }
       });
       setTimeSlots(res.data);
@@ -134,7 +134,7 @@ export default function BookAppointment() {
     setError('');
 
     try {
-      await api.post('/appointments/', {
+      await api.post('/appointments/appointments/', {
         doctor: doctorId,
         date: selectedDate,
         time: selectedTime,
