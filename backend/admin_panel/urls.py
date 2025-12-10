@@ -13,8 +13,10 @@ urlpatterns = [
     path('doctors/create/', views.admin_doctor_create, name='admin-doctor-create'),
     path('doctors/stats/', views.admin_doctors_stats, name='admin-doctors-stats'),
     path('doctors/<uuid:pk>/', views.admin_doctor_detail, name='admin-doctor-detail'),
+    path('doctors/<uuid:pk>/update/', views.admin_doctor_update, name='admin-doctor-update'),
     path('doctors/<uuid:pk>/activate/', views.admin_doctor_activate, name='admin-doctor-activate'),
     path('doctors/<uuid:pk>/deactivate/', views.admin_doctor_deactivate, name='admin-doctor-deactivate'),
+    path('doctors/<uuid:pk>/reset-password/', views.admin_doctor_reset_password, name='admin-doctor-reset-password'),
 
     # ============== DROPDOWNS ==============
     path('specializations/', views.admin_specializations_list, name='admin-specializations'),

@@ -672,6 +672,8 @@ def admin_settings_update(request):
 @permission_classes([IsAdminUser])
 def admin_doctor_create(request):
     """Yangi shifokor qo'shish"""
+    import random
+    import string
     from accounts.models import User
     from doctors.models import Doctor, Specialization, Hospital
 
@@ -710,8 +712,10 @@ def admin_doctor_create(request):
             'error': 'Mutaxassislik yoki shifoxona topilmadi'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Create user
-    password = data.get('password', 'Doctor123!')
+    # Generate random password
+    password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+
+    # Create username from email
     username = email.split('@')[0]
     counter = 1
     base_username = username
@@ -755,8 +759,98 @@ def admin_doctor_create(request):
         'id': str(doctor.id),
         'name': f"Dr. {user.get_full_name()}",
         'email': user.email,
+        'password': password,  # Parolni qaytarish
         'message': 'Shifokor muvaffaqiyatli qo\'shildi!'
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def admin_doctor_update(request, pk):
+    """Shifokorni tahrirlash"""
+    from accounts.models import User
+    from doctors.models import Doctor, Specialization, Hospital
+
+    try:
+        doctor = Doctor.objects.select_related('user').get(pk=pk)
+    except Doctor.DoesNotExist:
+        return Response({'error': 'Shifokor topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = request.data
+    user = doctor.user
+
+    # Update user fields
+    if 'first_name' in data:
+        user.first_name = data['first_name']
+    if 'last_name' in data:
+        user.last_name = data['last_name']
+    if 'phone' in data:
+        user.phone = data['phone']
+    if 'email' in data and data['email'] != user.email:
+        if User.objects.filter(email=data['email']).exclude(pk=user.pk).exists():
+            return Response({'error': 'Bu email allaqachon band'}, status=status.HTTP_400_BAD_REQUEST)
+        user.email = data['email']
+    user.save()
+
+    # Update doctor fields
+    if 'specialization_id' in data:
+        try:
+            doctor.specialization = Specialization.objects.get(id=data['specialization_id'])
+        except Specialization.DoesNotExist:
+            pass
+    if 'hospital_id' in data:
+        try:
+            doctor.hospital = Hospital.objects.get(id=data['hospital_id'])
+        except Hospital.DoesNotExist:
+            pass
+    if 'license_number' in data:
+        if Doctor.objects.filter(license_number=data['license_number']).exclude(pk=pk).exists():
+            return Response({'error': 'Bu litsenziya raqami band'}, status=status.HTTP_400_BAD_REQUEST)
+        doctor.license_number = data['license_number']
+    if 'experience_years' in data:
+        doctor.experience_years = data['experience_years']
+    if 'education' in data:
+        doctor.education = data['education']
+    if 'bio' in data:
+        doctor.bio = data['bio']
+    if 'consultation_price' in data:
+        doctor.consultation_price = data['consultation_price']
+    if 'is_available' in data:
+        doctor.is_available = data['is_available']
+    if 'languages' in data:
+        doctor.languages = data['languages']
+
+    doctor.save()
+
+    return Response({
+        'id': str(doctor.id),
+        'message': 'Shifokor yangilandi'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_doctor_reset_password(request, pk):
+    """Shifokor parolini yangilash"""
+    import random
+    import string
+    from doctors.models import Doctor
+
+    try:
+        doctor = Doctor.objects.select_related('user').get(pk=pk)
+    except Doctor.DoesNotExist:
+        return Response({'error': 'Shifokor topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Generate new password
+    new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+    doctor.user.set_password(new_password)
+    doctor.user.save()
+
+    return Response({
+        'email': doctor.user.email,
+        'password': new_password,
+        'message': 'Parol yangilandi'
+    })
 
 
 @api_view(['GET'])

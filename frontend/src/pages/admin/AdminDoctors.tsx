@@ -1,8 +1,8 @@
 // src/pages/admin/AdminDoctors.tsx
 import { useState, useEffect } from 'react';
 import {
-  Search, Plus, Star, Edit2, Trash2, Eye, CheckCircle,
-  XCircle, Clock, UserCog, X, Loader2
+  Search, Plus, Star, Eye, CheckCircle,
+  XCircle, Clock, UserCog, X, Loader2, Edit2, Key, Copy, Check
 } from 'lucide-react';
 import apiClient from '../../api/client';
 
@@ -13,12 +13,18 @@ interface Doctor {
   phone: string;
   avatar: string | null;
   specialization: string;
+  specialization_id?: number;
   hospital: string;
+  hospital_id?: string;
   experience: number;
   patients_count: number;
   rating: number;
   status: 'active' | 'inactive';
   joined: string;
+  license_number?: string;
+  education?: string;
+  bio?: string;
+  consultation_price?: number;
 }
 
 interface Specialization {
@@ -33,10 +39,19 @@ interface Hospital {
   type: string;
 }
 
+interface CreatedDoctor {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export default function AdminDoctors() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCredentials, setShowCredentials] = useState<CreatedDoctor | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, new_this_month: 0 });
@@ -87,6 +102,31 @@ export default function AdminDoctors() {
       fetchStats();
     } catch (error) {
       console.error('Error deactivating doctor:', error);
+    }
+  };
+
+  const handleResetPassword = async (id: string) => {
+    if (!confirm('Parolni yangilashni xohlaysizmi?')) return;
+    try {
+      const response = await apiClient.post(`/api/admin-panel/doctors/${id}/reset-password/`);
+      setShowCredentials({
+        name: '',
+        email: response.data.email,
+        password: response.data.password
+      });
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Parolni yangilashda xatolik');
+    }
+  };
+
+  const handleEdit = async (id: string) => {
+    try {
+      const response = await apiClient.get(`/api/admin-panel/doctors/${id}/`);
+      setSelectedDoctor(response.data);
+      setShowEditModal(true);
+    } catch (error) {
+      console.error('Error fetching doctor:', error);
     }
   };
 
@@ -259,9 +299,20 @@ export default function AdminDoctors() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Ko'rish">
-                        <Eye className="h-5 w-5" />
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleEdit(doctor.id)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="Tahrirlash"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(doctor.id)}
+                        className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg"
+                        title="Parol yangilash"
+                      >
+                        <Key className="h-4 w-4" />
                       </button>
                       {doctor.status === 'active' ? (
                         <button
@@ -269,7 +320,7 @@ export default function AdminDoctors() {
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                           title="O'chirish"
                         >
-                          <XCircle className="h-5 w-5" />
+                          <XCircle className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
@@ -277,7 +328,7 @@ export default function AdminDoctors() {
                           className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
                           title="Faollashtirish"
                         >
-                          <CheckCircle className="h-5 w-5" />
+                          <CheckCircle className="h-4 w-4" />
                         </button>
                       )}
                     </div>
@@ -298,32 +349,120 @@ export default function AdminDoctors() {
 
       {/* Add Doctor Modal */}
       {showAddModal && (
-        <AddDoctorModal
+        <DoctorFormModal
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
+          onSuccess={(data) => {
             setShowAddModal(false);
+            setShowCredentials(data);
             fetchDoctors();
             fetchStats();
           }}
+        />
+      )}
+
+      {/* Edit Doctor Modal */}
+      {showEditModal && selectedDoctor && (
+        <DoctorFormModal
+          doctor={selectedDoctor}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedDoctor(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setSelectedDoctor(null);
+            fetchDoctors();
+          }}
+        />
+      )}
+
+      {/* Credentials Modal */}
+      {showCredentials && (
+        <CredentialsModal
+          data={showCredentials}
+          onClose={() => setShowCredentials(null)}
         />
       )}
     </div>
   );
 }
 
-function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+// Credentials Modal - parolni ko'rsatish
+function CredentialsModal({ data, onClose }: { data: CreatedDoctor; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = () => {
+    const text = `Email: ${data.email}\nParol: ${data.password}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl p-6">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">Shifokor qo'shildi!</h3>
+          <p className="text-gray-500 mt-1">Kirish ma'lumotlarini saqlang</p>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl p-4 mb-6">
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 uppercase">Email (Login)</label>
+            <p className="font-mono text-lg text-gray-900">{data.email}</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 uppercase">Parol</label>
+            <p className="font-mono text-lg text-gray-900">{data.password}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={copyToClipboard}
+            className="flex-1 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+          >
+            {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Nusxalandi!' : 'Nusxalash'}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
+          >
+            Yopish
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Doctor Form Modal - qo'shish va tahrirlash uchun
+function DoctorFormModal({
+  doctor,
+  onClose,
+  onSuccess
+}: {
+  doctor?: Doctor;
+  onClose: () => void;
+  onSuccess: (data?: CreatedDoctor) => void;
+}) {
+  const isEdit = !!doctor;
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    specialization_id: '',
-    hospital_id: '',
-    license_number: '',
-    experience_years: 0,
-    education: '',
-    bio: '',
-    consultation_price: 100000,
+    first_name: doctor?.name?.split(' ')[1] || '',
+    last_name: doctor?.name?.split(' ')[2] || '',
+    email: doctor?.email || '',
+    phone: doctor?.phone || '',
+    specialization_id: doctor?.specialization_id?.toString() || '',
+    hospital_id: doctor?.hospital_id || '',
+    license_number: doctor?.license_number || '',
+    experience_years: doctor?.experience || 0,
+    education: doctor?.education || '',
+    bio: doctor?.bio || '',
+    consultation_price: doctor?.consultation_price || 100000,
   });
   const [specializations, setSpecializations] = useState<Specialization[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
@@ -346,9 +485,9 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     } catch (error: any) {
       console.error('Error fetching dropdowns:', error);
       if (error.response?.status === 403) {
-        setError('Admin huquqi kerak. Iltimos admin sifatida kiring.');
+        setError('Admin huquqi kerak');
       } else if (error.response?.status === 401) {
-        setError('Avtorizatsiya muddati tugagan. Qayta kiring.');
+        setError('Avtorizatsiya muddati tugagan');
       } else {
         setError('Ma\'lumotlarni yuklashda xatolik');
       }
@@ -369,8 +508,17 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
 
     setSaving(true);
     try {
-      await apiClient.post('/api/admin-panel/doctors/create/', formData);
-      onSuccess();
+      if (isEdit && doctor) {
+        await apiClient.put(`/api/admin-panel/doctors/${doctor.id}/update/`, formData);
+        onSuccess();
+      } else {
+        const response = await apiClient.post('/api/admin-panel/doctors/create/', formData);
+        onSuccess({
+          name: response.data.name,
+          email: response.data.email,
+          password: response.data.password
+        });
+      }
     } catch (error: any) {
       setError(error.response?.data?.error || "Xatolik yuz berdi");
     } finally {
@@ -411,7 +559,9 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
-          <h3 className="text-xl font-bold text-gray-900">Yangi shifokor qo'shish</h3>
+          <h3 className="text-xl font-bold text-gray-900">
+            {isEdit ? 'Shifokorni tahrirlash' : 'Yangi shifokor qo\'shish'}
+          </h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="h-5 w-5" />
           </button>
@@ -456,6 +606,7 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
                 placeholder="email@example.com"
+                disabled={isEdit}
               />
             </div>
             <div>
@@ -570,7 +721,7 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
               className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+              {saving ? 'Saqlanmoqda...' : (isEdit ? 'Yangilash' : 'Qo\'shish')}
             </button>
           </div>
         </form>
