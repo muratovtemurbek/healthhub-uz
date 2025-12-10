@@ -363,9 +363,9 @@ export default function Register() {
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Send className="h-8 w-8 text-blue-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Tasdiqlash kodi</h3>
+              <h3 className="text-xl font-bold text-gray-900">Telegram orqali tasdiqlash</h3>
               <p className="text-gray-500 mt-2">
-                Telegram botdan olgan 5 xonali kodni kiriting
+                Telegram botdan kod oling va shu yerga kiriting
               </p>
             </div>
 
@@ -374,6 +374,24 @@ export default function Register() {
                 {modalError}
               </div>
             )}
+
+            {/* Telegram bot link - deeplink bilan */}
+            <a
+              href={`https://t.me/${botUsername}?start=${userId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 flex items-center justify-center mb-6"
+            >
+              <Send className="h-5 w-5 mr-2" />
+              <span>Telegram botni ochish</span>
+              <ExternalLink className="h-4 w-4 ml-2" />
+            </a>
+
+            <div className="border-t border-gray-200 my-4"></div>
+
+            <p className="text-sm text-gray-600 mb-4 text-center">
+              Telegram botdan olgan <strong>5 xonali kodni</strong> kiriting:
+            </p>
 
             <div className="flex justify-center space-x-3 mb-6">
               {code.map((digit, index) => (
@@ -402,23 +420,9 @@ export default function Register() {
               </div>
             )}
 
-            <div className="border-t border-gray-200 my-4"></div>
-
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-3 text-center">
-                Telegram botga oting va <strong>/start</strong> bosing
-              </p>
-              <a
-                href={`https://t.me/${botUsername}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 flex items-center justify-center"
-              >
-                <Send className="h-5 w-5 mr-2" />
-                <span>@{botUsername}</span>
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </a>
-            </div>
+            <p className="text-xs text-gray-500 text-center">
+              Kod 70 soniya amal qiladi
+            </p>
           </div>
         </div>
       )}

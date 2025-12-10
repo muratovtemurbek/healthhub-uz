@@ -192,16 +192,49 @@ def telegram_webhook(request):
     telegram_username = user_data.get('username', '')
     first_name = user_data.get('first_name', '')
 
-    # /start command
-    if text == '/start':
-        send_telegram_message(
-            chat_id,
-            f"👋 Salom, {first_name}!\n\n"
-            f"🏥 <b>HealthHub UZ</b> botiga xush kelibsiz!\n\n"
-            f"📱 Hisobingizni tasdiqlash uchun saytdan olgan <b>5 xonali kodni</b> yuboring.\n\n"
-            f"⏱ Kod 70 soniya amal qiladi.\n\n"
-            f"Masalan: <code>12345</code>"
-        )
+    # /start command (with optional user_id deeplink)
+    if text.startswith('/start'):
+        parts = text.split()
+
+        # Deeplink bilan: /start user_id
+        if len(parts) > 1:
+            user_id = parts[1]
+            try:
+                verification = TelegramVerification.objects.get(user_id=user_id, is_verified=False)
+
+                # Telegram ID saqlash
+                verification.telegram_id = chat_id
+                verification.telegram_username = telegram_username
+                verification.save()
+
+                # Yangi kod generatsiya
+                new_code = verification.refresh_code()
+
+                send_telegram_message(
+                    chat_id,
+                    f"👋 Salom, {first_name}!\n\n"
+                    f"🏥 <b>HealthHub UZ</b> botiga xush kelibsiz!\n\n"
+                    f"📱 Sizning tasdiqlash kodingiz:\n\n"
+                    f"<code>{new_code}</code>\n\n"
+                    f"⏱ Kod 70 soniya amal qiladi.\n\n"
+                    f"✅ Bu kodni saytga kiriting."
+                )
+            except TelegramVerification.DoesNotExist:
+                send_telegram_message(
+                    chat_id,
+                    f"👋 Salom, {first_name}!\n\n"
+                    f"❌ Foydalanuvchi topilmadi yoki allaqachon tasdiqlangan.\n\n"
+                    f"🌐 Saytga qaytib qayta ro'yxatdan o'ting."
+                )
+        else:
+            # Oddiy /start - deeplink siz
+            send_telegram_message(
+                chat_id,
+                f"👋 Salom, {first_name}!\n\n"
+                f"🏥 <b>HealthHub UZ</b> botiga xush kelibsiz!\n\n"
+                f"📱 Hisobingizni tasdiqlash uchun saytdagi havolani bosing.\n\n"
+                f"🌐 https://healthhub-uz-production.up.railway.app/register"
+            )
         return Response({'ok': True})
 
     # /help command
