@@ -4,9 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Search, Phone, Video,
   MoreVertical, Check, CheckCheck, Clock, Plus,
-  User, Stethoscope
+  User, Stethoscope, Loader2
 } from 'lucide-react';
-import apiClient from '../api/client';
+import api from '../services/api';
 
 interface ChatRoom {
   id: string;
@@ -20,43 +20,6 @@ interface ChatRoom {
   is_online: boolean;
 }
 
-// Demo data
-const DEMO_ROOMS: ChatRoom[] = [
-  {
-    id: "room-1",
-    doctor_id: "doc-1",
-    doctor_name: "Dr. Akbar Karimov",
-    doctor_specialty: "Kardiolog",
-    doctor_avatar: null,
-    last_message: "Yaxshi, ertaga soat 10:00 da kutaman",
-    last_message_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 min ago
-    unread_count: 2,
-    is_online: true
-  },
-  {
-    id: "room-2",
-    doctor_id: "doc-2",
-    doctor_name: "Dr. Malika Rahimova",
-    doctor_specialty: "Terapevt",
-    doctor_avatar: null,
-    last_message: "Tahlil natijalarini ko'rib chiqdim, hammasi yaxshi",
-    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-    unread_count: 0,
-    is_online: false
-  },
-  {
-    id: "room-3",
-    doctor_id: "doc-3",
-    doctor_name: "Dr. Bobur Alimov",
-    doctor_specialty: "Nevrolog",
-    doctor_avatar: null,
-    last_message: "Dori retseptini yubordim",
-    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-    unread_count: 0,
-    is_online: true
-  },
-];
-
 export default function ChatList() {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -69,11 +32,11 @@ export default function ChatList() {
 
   const fetchRooms = async () => {
     try {
-      const response = await apiClient.get('/api/chat/rooms/');
+      const response = await api.get('/chat/rooms/');
       setRooms(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.log('Using demo chat rooms');
-      setRooms(DEMO_ROOMS);
+      console.error('Chat rooms fetch error:', error);
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -106,7 +69,7 @@ export default function ChatList() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
       </div>
     );
   }

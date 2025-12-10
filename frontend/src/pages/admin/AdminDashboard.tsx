@@ -4,63 +4,51 @@ import { Link } from 'react-router-dom';
 import {
   Users, UserCog, Calendar, CreditCard, TrendingUp,
   TrendingDown, Activity, DollarSign, Clock, CheckCircle,
-  XCircle, AlertCircle, ChevronRight, BarChart3, PieChart
+  XCircle, AlertCircle, ChevronRight, BarChart3, PieChart, Loader2
 } from 'lucide-react';
+import api from '../../services/api';
 
 interface Stats {
   total_patients: number;
   total_doctors: number;
+  active_doctors: number;
   total_appointments: number;
   today_appointments: number;
-  pending_appointments: number;
-  completed_appointments: number;
-  cancelled_appointments: number;
+  today_pending: number;
+  today_completed: number;
+  today_cancelled: number;
+  week_appointments: number;
+  month_appointments: number;
   total_revenue: number;
-  monthly_revenue: number;
-  revenue_growth: number;
-  new_patients_week: number;
-  new_doctors_month: number;
+  month_revenue: number;
+  today_revenue: number;
+  new_patients_month: number;
 }
 
 interface RecentActivity {
-  id: number;
+  id: string;
   type: 'appointment' | 'payment' | 'registration' | 'cancellation';
+  title: string;
   description: string;
   time: string;
-  user: string;
+  status: string;
+}
+
+interface TopDoctor {
+  id: string;
+  name: string;
+  specialty: string;
+  avatar: string | null;
+  patients: number;
+  appointments: number;
+  rating: number;
 }
 
 export default function AdminDashboard() {
-  const [stats] = useState<Stats>({
-    total_patients: 1256,
-    total_doctors: 48,
-    total_appointments: 8420,
-    today_appointments: 45,
-    pending_appointments: 12,
-    completed_appointments: 28,
-    cancelled_appointments: 5,
-    total_revenue: 458000000,
-    monthly_revenue: 52000000,
-    revenue_growth: 12.5,
-    new_patients_week: 34,
-    new_doctors_month: 3,
-  });
-
-  const [recentActivities] = useState<RecentActivity[]>([
-    { id: 1, type: 'appointment', description: 'Yangi qabul yaratildi', time: '5 daqiqa oldin', user: 'Aziza Karimova' },
-    { id: 2, type: 'payment', description: "To'lov qabul qilindi - 150,000 so'm", time: '15 daqiqa oldin', user: 'Bobur Aliyev' },
-    { id: 3, type: 'registration', description: 'Yangi bemor ro\'yxatdan o\'tdi', time: '30 daqiqa oldin', user: 'Dilnoza Rahimova' },
-    { id: 4, type: 'cancellation', description: 'Qabul bekor qilindi', time: '1 soat oldin', user: 'Eldor Toshmatov' },
-    { id: 5, type: 'appointment', description: 'Qabul yakunlandi', time: '2 soat oldin', user: 'Feruza Umarova' },
-  ]);
-
-  const [topDoctors] = useState([
-    { id: 1, name: 'Dr. Akbar Karimov', specialty: 'Kardiolog', patients: 156, rating: 4.9 },
-    { id: 2, name: 'Dr. Nodira Azimova', specialty: 'Pediatr', patients: 142, rating: 4.8 },
-    { id: 3, name: 'Dr. Jasur Toshev', specialty: 'Terapevt', patients: 128, rating: 4.7 },
-    { id: 4, name: 'Dr. Malika Rahimova', specialty: 'Dermatolog', patients: 115, rating: 4.8 },
-  ]);
-
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [topDoctors, setTopDoctors] = useState<TopDoctor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
 
   useEffect(() => {
@@ -68,6 +56,27 @@ export default function AdminDashboard() {
     if (hour < 12) setGreeting('Xayrli tong');
     else if (hour < 18) setGreeting('Xayrli kun');
     else setGreeting('Xayrli kech');
+  }, []);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const [statsRes, activityRes, doctorsRes] = await Promise.all([
+          api.get('/admin-panel/dashboard/stats/'),
+          api.get('/admin-panel/dashboard/activity/'),
+          api.get('/admin-panel/dashboard/top-doctors/')
+        ]);
+        setStats(statsRes.data);
+        setRecentActivities(activityRes.data);
+        setTopDoctors(doctorsRes.data);
+      } catch (error) {
+        console.error('Dashboard data fetch error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
   }, []);
 
   const getActivityIcon = (type: string) => {
@@ -89,11 +98,22 @@ export default function AdminDashboard() {
     return amount.toLocaleString();
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
       {/* Header */}
       <div className="mb-6 lg:mb-8">
-        <p className="text-gray-500">{greeting}, Admin! 👋</p>
+        <p className="text-gray-500">{greeting}, Admin!</p>
         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Dashboard</h1>
       </div>
 
@@ -107,10 +127,10 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center text-green-600 text-sm">
               <TrendingUp className="h-4 w-4 mr-1" />
-              +{stats.new_patients_week}
+              +{stats?.new_patients_month || 0}
             </div>
           </div>
-          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{stats.total_patients.toLocaleString()}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{(stats?.total_patients || 0).toLocaleString()}</p>
           <p className="text-sm text-gray-500">Jami bemorlar</p>
         </div>
 
@@ -121,11 +141,11 @@ export default function AdminDashboard() {
               <UserCog className="h-6 w-6 text-purple-600" />
             </div>
             <div className="flex items-center text-green-600 text-sm">
-              <TrendingUp className="h-4 w-4 mr-1" />
-              +{stats.new_doctors_month}
+              <Activity className="h-4 w-4 mr-1" />
+              {stats?.active_doctors || 0} faol
             </div>
           </div>
-          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{stats.total_doctors}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{stats?.total_doctors || 0}</p>
           <p className="text-sm text-gray-500">Shifokorlar</p>
         </div>
 
@@ -135,9 +155,9 @@ export default function AdminDashboard() {
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <Calendar className="h-6 w-6 text-green-600" />
             </div>
-            <span className="text-sm text-gray-500">Bugun: {stats.today_appointments}</span>
+            <span className="text-sm text-gray-500">Bugun: {stats?.today_appointments || 0}</span>
           </div>
-          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{stats.total_appointments.toLocaleString()}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{(stats?.total_appointments || 0).toLocaleString()}</p>
           <p className="text-sm text-gray-500">Jami qabullar</p>
         </div>
 
@@ -147,12 +167,9 @@ export default function AdminDashboard() {
             <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
               <DollarSign className="h-6 w-6 text-yellow-600" />
             </div>
-            <div className="flex items-center text-green-600 text-sm">
-              <TrendingUp className="h-4 w-4 mr-1" />
-              +{stats.revenue_growth}%
-            </div>
+            <span className="text-sm text-gray-500">Bugun: {formatCurrency(stats?.today_revenue || 0)}</span>
           </div>
-          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{formatCurrency(stats.monthly_revenue)}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-gray-900">{formatCurrency(stats?.month_revenue || 0)}</p>
           <p className="text-sm text-gray-500">Oylik daromad</p>
         </div>
       </div>
@@ -167,22 +184,22 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-xl">
                 <Clock className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.today_appointments}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.today_appointments || 0}</p>
                 <p className="text-sm text-gray-500">Jami qabullar</p>
               </div>
               <div className="text-center p-4 bg-yellow-50 rounded-xl">
                 <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.pending_appointments}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.today_pending || 0}</p>
                 <p className="text-sm text-gray-500">Kutilmoqda</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-xl">
                 <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.completed_appointments}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.today_completed || 0}</p>
                 <p className="text-sm text-gray-500">Yakunlangan</p>
               </div>
               <div className="text-center p-4 bg-red-50 rounded-xl">
                 <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.cancelled_appointments}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.today_cancelled || 0}</p>
                 <p className="text-sm text-gray-500">Bekor qilingan</p>
               </div>
             </div>
@@ -197,12 +214,16 @@ export default function AdminDashboard() {
               </Link>
             </div>
             <div className="space-y-4">
-              {topDoctors.map((doctor, index) => (
+              {topDoctors.length > 0 ? topDoctors.slice(0, 5).map((doctor, index) => (
                 <div key={doctor.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-white font-semibold">{index + 1}</span>
-                    </div>
+                    {doctor.avatar ? (
+                      <img src={doctor.avatar} alt={doctor.name} className="w-10 h-10 rounded-full object-cover mr-3" />
+                    ) : (
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-white font-semibold">{index + 1}</span>
+                      </div>
+                    )}
                     <div>
                       <p className="font-semibold text-gray-900">{doctor.name}</p>
                       <p className="text-sm text-gray-500">{doctor.specialty}</p>
@@ -210,10 +231,15 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">{doctor.patients} bemor</p>
-                    <p className="text-sm text-yellow-600">⭐ {doctor.rating}</p>
+                    <p className="text-sm text-yellow-600">⭐ {doctor.rating.toFixed(1)}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-8 text-gray-500">
+                  <UserCog className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>Shifokorlar mavjud emas</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -277,17 +303,23 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">So'nggi faoliyat</h2>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
+              {recentActivities.length > 0 ? recentActivities.map((activity) => (
                 <div key={activity.id} className="flex items-start">
                   <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                     {getActivityIcon(activity.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.description}</p>
-                    <p className="text-xs text-gray-500">{activity.user} • {activity.time}</p>
+                    <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                    <p className="text-sm text-gray-600">{activity.description}</p>
+                    <p className="text-xs text-gray-500">{activity.time}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Activity className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>Faoliyat mavjud emas</p>
+                </div>
+              )}
             </div>
           </div>
 

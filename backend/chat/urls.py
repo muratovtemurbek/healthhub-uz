@@ -22,4 +22,13 @@ urlpatterns = [
 
     # Delete
     path('messages/<str:message_id>/delete/', views.delete_message, name='delete-message'),
+
+    # ============== VIDEO CALL ==============
+    path('call/start/<str:room_id>/', views.start_video_call, name='start-video-call'),
+    path('call/<str:call_id>/answer/', views.answer_call, name='answer-call'),
+    path('call/<str:call_id>/decline/', views.decline_call, name='decline-call'),
+    path('call/<str:call_id>/end/', views.end_call, name='end-call'),
+    path('call/<str:call_id>/status/', views.get_call_status, name='call-status'),
+    path('call/incoming/', views.get_incoming_call, name='incoming-call'),
+    path('call/history/<str:room_id>/', views.get_call_history, name='call-history'),
 ]

@@ -39,6 +39,7 @@ import MedicineReminders from './pages/MedicineReminders';
 import HealthAnalytics from './pages/HealthAnalytics';
 import Hospitals from './pages/Hospitals';
 import MedicalDocuments from './pages/MedicalDocuments';
+import VideoCall from './pages/VideoCall';
 
 // Doctor Pages
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
@@ -108,7 +109,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="home" element={<Home />} />
           <Route path="doctors" element={<Doctors />} />
-          <Route path="doctors/:id/book" element={<BookAppointment />} />
+          <Route path="doctors/:doctorId/book" element={<BookAppointment />} />
           <Route path="appointments" element={<Appointments />} />
           <Route path="profile" element={<Profile />} />
           <Route path="medicines" element={<Medicines />} />
@@ -127,7 +128,8 @@ export default function App() {
         <Route path="/help" element={<PrivateRoute allowedRoles={['patient']}><Help /></PrivateRoute>} />
         <Route path="/symptom-checker" element={<PrivateRoute allowedRoles={['patient']}><SymptomChecker /></PrivateRoute>} />
         <Route path="/chat" element={<PrivateRoute allowedRoles={['patient']}><ChatList /></PrivateRoute>} />
-        <Route path="/chat/:id" element={<PrivateRoute allowedRoles={['patient']}><ChatRoom /></PrivateRoute>} />
+        <Route path="/chat/:roomId" element={<PrivateRoute allowedRoles={['patient']}><ChatRoom /></PrivateRoute>} />
+        <Route path="/video-call/:roomId" element={<PrivateRoute allowedRoles={['patient', 'doctor']}><VideoCall /></PrivateRoute>} />
         <Route path="/ai-chat" element={<PrivateRoute allowedRoles={['patient']}><AIChat /></PrivateRoute>} />
         <Route path="/change-password" element={<PrivateRoute allowedRoles={['patient']}><ChangePassword /></PrivateRoute>} />
         <Route path="/profile/edit" element={<PrivateRoute allowedRoles={['patient']}><ProfileEdit /></PrivateRoute>} />

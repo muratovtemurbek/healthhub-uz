@@ -4,9 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Send, Paperclip, Mic, MoreVertical,
   Phone, Video, Image, Smile, Check, CheckCheck,
-  Clock, AlertCircle, X, Camera
+  Clock, AlertCircle, X, Camera, Loader2
 } from 'lucide-react';
-import apiClient from '../api/client';
+import api from '../services/api';
 
 interface Message {
   id: string;
@@ -28,35 +28,6 @@ interface DoctorInfo {
   avatar: string | null;
   is_online: boolean;
 }
-
-// Demo data
-const DEMO_DOCTORS: Record<string, DoctorInfo> = {
-  'room-1': { id: 'doc-1', name: 'Dr. Akbar Karimov', specialty: 'Kardiolog', avatar: null, is_online: true },
-  'room-2': { id: 'doc-2', name: 'Dr. Malika Rahimova', specialty: 'Terapevt', avatar: null, is_online: false },
-  'room-3': { id: 'doc-3', name: 'Dr. Bobur Alimov', specialty: 'Nevrolog', avatar: null, is_online: true },
-};
-
-const DEMO_MESSAGES: Record<string, Message[]> = {
-  'room-1': [
-    { id: 'msg-1', sender: 'doctor', sender_name: 'Dr. Akbar Karimov', content: 'Assalomu alaykum! Qanday yordam bera olaman?', message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString() },
-    { id: 'msg-2', sender: 'patient', sender_name: 'Siz', content: "Vaalaykum assalom! Ko'krak sohasida og'riq bor", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 3.9).toISOString() },
-    { id: 'msg-3', sender: 'doctor', sender_name: 'Dr. Akbar Karimov', content: "Qachondan beri og'riyapti? Qanday og'riq - keskin yoki o'tmas?", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 3.8).toISOString() },
-    { id: 'msg-4', sender: 'patient', sender_name: 'Siz', content: "2-3 kundan beri. O'tmas og'riq, ba'zan kuchayadi", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 3.5).toISOString() },
-    { id: 'msg-5', sender: 'doctor', sender_name: 'Dr. Akbar Karimov', content: "Tushundim. EKG va qon tahlili qilish kerak bo'ladi. Klinikaga kelishingiz mumkinmi?", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString() },
-    { id: 'msg-6', sender: 'patient', sender_name: 'Siz', content: 'Ha, ertaga kela olaman', message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString() },
-    { id: 'msg-7', sender: 'doctor', sender_name: 'Dr. Akbar Karimov', content: 'Yaxshi, ertaga soat 10:00 da kutaman. Manzil: Toshkent Tibbiyot Markazi, 3-qavat, 305-xona', message_type: 'text', is_read: false, created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
-  ],
-  'room-2': [
-    { id: 'msg-10', sender: 'patient', sender_name: 'Siz', content: 'Salom doktor, tahlil natijalari tayyor bo\'ldimi?', message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 25).toISOString() },
-    { id: 'msg-11', sender: 'doctor', sender_name: 'Dr. Malika Rahimova', content: "Salom! Ha, hozir ko'rib chiqaman", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 24.5).toISOString() },
-    { id: 'msg-12', sender: 'doctor', sender_name: 'Dr. Malika Rahimova', content: "Tahlil natijalarini ko'rib chiqdim, hammasi yaxshi. Gemoglobin 140, qand 5.2, xolesterin norma. Sog'lom ekansiz! 👍", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-  ],
-  'room-3': [
-    { id: 'msg-20', sender: 'doctor', sender_name: 'Dr. Bobur Alimov', content: "Salom! Bosh og'rig'i qanday?", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 50).toISOString() },
-    { id: 'msg-21', sender: 'patient', sender_name: 'Siz', content: "Yaxshiroq, lekin hali to'liq o'tmadi", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 49).toISOString() },
-    { id: 'msg-22', sender: 'doctor', sender_name: 'Dr. Bobur Alimov', content: "Dori retseptini yubordim. Kuniga 2 marta, ovqatdan keyin iching. 5 kunlik kurs. Agar yaxshilanmasa, albatta qayta murojaat qiling.", message_type: 'text', is_read: true, created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
-  ],
-};
 
 export default function ChatRoom() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -94,31 +65,41 @@ export default function ChatRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchDoctorInfo = () => {
-    if (roomId && DEMO_DOCTORS[roomId]) {
-      setDoctor(DEMO_DOCTORS[roomId]);
-    } else {
+  const fetchDoctorInfo = async () => {
+    try {
+      // Chat rooms API dan doctor ma'lumotlarini olish
+      const response = await api.get('/chat/rooms/');
+      const rooms = response.data;
+      const currentRoom = rooms.find((r: any) => r.id === roomId);
+
+      if (currentRoom) {
+        setDoctor({
+          id: currentRoom.doctor_id,
+          name: currentRoom.doctor_name,
+          specialty: currentRoom.doctor_specialty,
+          avatar: currentRoom.doctor_avatar,
+          is_online: currentRoom.is_online
+        });
+      }
+    } catch (error) {
+      console.error('Doctor info error:', error);
       setDoctor({
-        id: 'doc-new',
-        name: 'Dr. Shifokor',
+        id: 'unknown',
+        name: 'Shifokor',
         specialty: 'Mutaxassis',
         avatar: null,
-        is_online: true
+        is_online: false
       });
     }
   };
 
   const fetchMessages = async () => {
     try {
-      const response = await apiClient.get(`/api/chat/rooms/${roomId}/messages/`);
+      const response = await api.get(`/chat/rooms/${roomId}/messages/`);
       setMessages(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.log('Using demo messages');
-      if (roomId && DEMO_MESSAGES[roomId]) {
-        setMessages(DEMO_MESSAGES[roomId]);
-      } else {
-        setMessages([]);
-      }
+      console.error('Messages fetch error:', error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
@@ -145,7 +126,7 @@ export default function ChatRoom() {
     setSending(true);
 
     try {
-      const response = await apiClient.post(`/api/chat/rooms/${roomId}/send/`, {
+      const response = await api.post(`/chat/rooms/${roomId}/send/`, {
         content,
         message_type: 'text'
       });
@@ -156,54 +137,25 @@ export default function ChatRoom() {
           ? { ...response.data, is_sending: false }
           : msg
       ));
-
-      // Simulate doctor typing response
-      simulateDoctorResponse();
     } catch (error) {
-      console.log('Message sent (demo)');
-      // Mark as sent in demo mode
+      console.error('Send message error:', error);
+      // Mark as error
       setMessages(prev => prev.map(msg =>
         msg.id === tempId
-          ? { ...msg, is_sending: false }
+          ? { ...msg, is_sending: false, is_error: true }
           : msg
       ));
-
-      simulateDoctorResponse();
     } finally {
       setSending(false);
     }
   };
 
-  const simulateDoctorResponse = () => {
-    // Simulate typing indicator
-    setIsTyping(true);
+  const handleVideoCall = () => {
+    navigate(`/video-call/${roomId}`);
+  };
 
-    setTimeout(() => {
-      setIsTyping(false);
-
-      // Auto responses
-      const responses = [
-        "Tushundim, rahmat ma'lumot uchun 👍",
-        "Yaxshi, kuzatib boramiz",
-        "Agar savollaringiz bo'lsa, bemalol yozing",
-        "Sog'lom bo'ling! 🏥",
-        "Ha, albatta. Ertaga kutaman"
-      ];
-
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-
-      const doctorMessage: Message = {
-        id: `auto-${Date.now()}`,
-        sender: 'doctor',
-        sender_name: doctor?.name || 'Dr. Shifokor',
-        content: randomResponse,
-        message_type: 'text',
-        is_read: false,
-        created_at: new Date().toISOString()
-      };
-
-      setMessages(prev => [...prev, doctorMessage]);
-    }, 2000 + Math.random() * 2000);
+  const handleVoiceCall = () => {
+    navigate(`/video-call/${roomId}?audio=true`);
   };
 
   const formatTime = (dateStr: string) => {
@@ -291,11 +243,19 @@ export default function ChatRoom() {
           </div>
 
           <div className="flex items-center space-x-1 flex-shrink-0">
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
+            <button
+              onClick={handleVoiceCall}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+              title="Audio qo'ng'iroq"
+            >
               <Phone className="h-5 w-5 text-gray-600" />
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <Video className="h-5 w-5 text-gray-600" />
+            <button
+              onClick={handleVideoCall}
+              className="p-2 hover:bg-blue-100 rounded-lg"
+              title="Video qo'ng'iroq"
+            >
+              <Video className="h-5 w-5 text-blue-600" />
             </button>
             <button className="p-2 hover:bg-gray-100 rounded-lg">
               <MoreVertical className="h-5 w-5 text-gray-600" />

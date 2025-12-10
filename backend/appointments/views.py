@@ -18,7 +18,7 @@ from .serializers import (
 # ============== APPOINTMENT VIEWSET ==============
 class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         queryset = Appointment.objects.all()
@@ -84,7 +84,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['PATCH', 'PUT'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def appointment_update(request, pk):
     """Appointment status yangilash"""
     try:
@@ -106,7 +106,7 @@ def appointment_update(request, pk):
 # ============== PRESCRIPTION VIEWSET ==============
 class PrescriptionViewSet(viewsets.ModelViewSet):
     serializer_class = PrescriptionSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Prescription.objects.all().order_by('-created_at')
@@ -118,17 +118,14 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def my_prescriptions(request):
-    if request.user.is_authenticated:
-        prescriptions = Prescription.objects.filter(patient=request.user).order_by('-created_at')
-    else:
-        prescriptions = Prescription.objects.none()
+    prescriptions = Prescription.objects.filter(patient=request.user).order_by('-created_at')
     return Response(PrescriptionSerializer(prescriptions, many=True).data)
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def create_prescription(request):
     serializer = PrescriptionCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
@@ -140,7 +137,7 @@ def create_prescription(request):
 # ============== MEDICAL RECORD VIEWSET ==============
 class MedicalRecordViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalRecordSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return MedicalRecord.objects.all().order_by('-record_date')
@@ -152,17 +149,14 @@ class MedicalRecordViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def my_medical_records(request):
-    if request.user.is_authenticated:
-        records = MedicalRecord.objects.filter(patient=request.user).order_by('-record_date')
-    else:
-        records = MedicalRecord.objects.none()
+    records = MedicalRecord.objects.filter(patient=request.user).order_by('-record_date')
     return Response(MedicalRecordSerializer(records, many=True).data)
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def create_medical_record(request):
     serializer = MedicalRecordCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
@@ -173,19 +167,15 @@ def create_medical_record(request):
 
 # ============== ALLERGY & CHRONIC CONDITIONS ==============
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def my_allergies(request):
     if request.method == 'GET':
-        if request.user.is_authenticated:
-            allergies = Allergy.objects.filter(patient=request.user, is_active=True)
-        else:
-            allergies = Allergy.objects.none()
+        allergies = Allergy.objects.filter(patient=request.user, is_active=True)
         return Response(AllergySerializer(allergies, many=True).data)
 
     elif request.method == 'POST':
         data = request.data.copy()
-        if request.user.is_authenticated:
-            data['patient'] = request.user.id
+        data['patient'] = request.user.id
         serializer = AllergySerializer(data=data)
         if serializer.is_valid():
             serializer.save()
@@ -194,19 +184,15 @@ def my_allergies(request):
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def my_chronic_conditions(request):
     if request.method == 'GET':
-        if request.user.is_authenticated:
-            conditions = ChronicCondition.objects.filter(patient=request.user, is_active=True)
-        else:
-            conditions = ChronicCondition.objects.none()
+        conditions = ChronicCondition.objects.filter(patient=request.user, is_active=True)
         return Response(ChronicConditionSerializer(conditions, many=True).data)
 
     elif request.method == 'POST':
         data = request.data.copy()
-        if request.user.is_authenticated:
-            data['patient'] = request.user.id
+        data['patient'] = request.user.id
         serializer = ChronicConditionSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
@@ -216,11 +202,8 @@ def my_chronic_conditions(request):
 
 # ============== MEDICAL HISTORY ==============
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def my_medical_history(request):
-    if not request.user.is_authenticated:
-        return Response({'error': 'Avtorizatsiya talab qilinadi'}, status=status.HTTP_401_UNAUTHORIZED)
-
     user = request.user
 
     data = {
@@ -253,7 +236,7 @@ def my_medical_history(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def patient_medical_history(request, patient_id):
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -291,7 +274,7 @@ def patient_medical_history(request, patient_id):
 
 # ============== DOCTOR APPOINTMENTS ==============
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def doctor_appointments(request):
     date = request.query_params.get('date', timezone.now().date().isoformat())
     appointments = Appointment.objects.filter(date=date).order_by('time')

@@ -3,8 +3,54 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from django.db.models import Q
 from django.utils import timezone
-import random
+from .models import Hospital, HospitalReview
+import math
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Ikki nuqta orasidagi masofani hisoblash (km)"""
+    if not all([lat1, lon1, lat2, lon2]):
+        return None
+    R = 6371  # Earth radius in km
+    lat1, lon1, lat2, lon2 = map(float, [lat1, lon1, lat2, lon2])
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return round(R * c, 1)
+
+
+def hospital_to_dict(hospital, user_lat=None, user_lng=None):
+    """Hospital modelini dict ga o'girish"""
+    distance = None
+    if user_lat and user_lng and hospital.latitude and hospital.longitude:
+        distance = calculate_distance(user_lat, user_lng, hospital.latitude, hospital.longitude)
+
+    return {
+        'id': hospital.id,
+        'name': hospital.name,
+        'hospital_type': hospital.hospital_type,
+        'type_display': hospital.get_hospital_type_display(),
+        'address': hospital.address,
+        'city': hospital.city,
+        'latitude': float(hospital.latitude) if hospital.latitude else None,
+        'longitude': float(hospital.longitude) if hospital.longitude else None,
+        'phone': hospital.phone,
+        'email': hospital.email,
+        'website': hospital.website,
+        'rating': float(hospital.rating),
+        'reviews_count': hospital.reviews_count,
+        'is_24_hours': hospital.is_24_hours,
+        'working_hours': hospital.working_hours,
+        'specializations': hospital.specializations or [],
+        'services': hospital.services or [],
+        'description': hospital.description,
+        'image_url': hospital.image.url if hospital.image else None,
+        'distance': distance,
+        'is_verified': hospital.is_verified,
+    }
 
 
 @api_view(['GET'])
@@ -12,140 +58,47 @@ import random
 def hospitals_list(request):
     """Kasalxonalar ro'yxati"""
 
-    # Demo data - real loyihada DB dan olinadi
-    hospitals = [
-        {
-            'id': 1,
-            'name': 'Toshkent Tibbiyot Akademiyasi Klinikasi',
-            'hospital_type': 'hospital',
-            'type_display': 'Kasalxona',
-            'address': 'Toshkent sh., Almazar tumani, Farobiy ko\'chasi 2',
-            'city': 'Toshkent',
-            'latitude': 41.311081,
-            'longitude': 69.279737,
-            'phone': '+998 71 268 50 00',
-            'rating': 4.5,
-            'reviews_count': 128,
-            'is_24_hours': True,
-            'distance': 2.5,
-            'specializations': ['Kardiologiya', 'Nevrologiya', 'Terapiya', 'Jarrohlik'],
-            'image_url': '/media/hospitals/tma.jpg',
-        },
-        {
-            'id': 2,
-            'name': 'Respublika Shoshilinch Tibbiy Yordam Ilmiy Markazi',
-            'hospital_type': 'hospital',
-            'type_display': 'Kasalxona',
-            'address': 'Toshkent sh., Shayxontohur tumani, Kichik Xalqa yo\'li 2',
-            'city': 'Toshkent',
-            'latitude': 41.328650,
-            'longitude': 69.255889,
-            'phone': '+998 71 277 09 05',
-            'rating': 4.7,
-            'reviews_count': 256,
-            'is_24_hours': True,
-            'distance': 4.2,
-            'specializations': ['Travmatologiya', 'Reanimatologiya', 'Jarrohlik'],
-            'image_url': '/media/hospitals/emergency.jpg',
-        },
-        {
-            'id': 3,
-            'name': 'Premium Med Clinic',
-            'hospital_type': 'clinic',
-            'type_display': 'Klinika',
-            'address': 'Toshkent sh., Yunusobod tumani, Amir Temur ko\'chasi 88',
-            'city': 'Toshkent',
-            'latitude': 41.350000,
-            'longitude': 69.300000,
-            'phone': '+998 71 200 00 00',
-            'rating': 4.8,
-            'reviews_count': 89,
-            'is_24_hours': False,
-            'working_hours': '08:00 - 20:00',
-            'distance': 3.1,
-            'specializations': ['UZI', 'Laboratoriya', 'Terapiya'],
-            'image_url': '/media/hospitals/premium.jpg',
-        },
-        {
-            'id': 4,
-            'name': 'Dori-Darmon Dorixonasi',
-            'hospital_type': 'pharmacy',
-            'type_display': 'Dorixona',
-            'address': 'Toshkent sh., Mirzo Ulug\'bek tumani, Buyuk Ipak Yo\'li 48',
-            'city': 'Toshkent',
-            'latitude': 41.340000,
-            'longitude': 69.285000,
-            'phone': '+998 71 255 55 55',
-            'rating': 4.3,
-            'reviews_count': 45,
-            'is_24_hours': True,
-            'distance': 1.2,
-            'specializations': ['Dorilar', 'Tibbiy anjomlar'],
-            'image_url': '/media/hospitals/pharmacy.jpg',
-        },
-        {
-            'id': 5,
-            'name': 'Invitro Laboratoriyasi',
-            'hospital_type': 'laboratory',
-            'type_display': 'Laboratoriya',
-            'address': 'Toshkent sh., Chilonzor tumani, Bunyodkor ko\'chasi 5',
-            'city': 'Toshkent',
-            'latitude': 41.285000,
-            'longitude': 69.205000,
-            'phone': '+998 71 150 00 00',
-            'rating': 4.6,
-            'reviews_count': 167,
-            'is_24_hours': False,
-            'working_hours': '07:00 - 19:00',
-            'distance': 5.5,
-            'specializations': ['Qon tahlili', 'Genetik testlar', 'Allergiya testlari'],
-            'image_url': '/media/hospitals/invitro.jpg',
-        },
-        {
-            'id': 6,
-            'name': 'Smile Dental Clinic',
-            'hospital_type': 'dental',
-            'type_display': 'Stomatologiya',
-            'address': 'Toshkent sh., Yunusobod tumani, Bogishamol ko\'chasi 12',
-            'city': 'Toshkent',
-            'latitude': 41.355000,
-            'longitude': 69.290000,
-            'phone': '+998 71 234 56 78',
-            'rating': 4.9,
-            'reviews_count': 203,
-            'is_24_hours': False,
-            'working_hours': '09:00 - 21:00',
-            'distance': 2.8,
-            'specializations': ['Terapevtik stomatologiya', 'Ortodontiya', 'Implantatsiya'],
-            'image_url': '/media/hospitals/dental.jpg',
-        },
-    ]
+    queryset = Hospital.objects.filter(is_active=True)
 
     # Filters
     hospital_type = request.GET.get('type')
     if hospital_type:
-        hospitals = [h for h in hospitals if h['hospital_type'] == hospital_type]
+        queryset = queryset.filter(hospital_type=hospital_type)
 
     city = request.GET.get('city')
     if city:
-        hospitals = [h for h in hospitals if h['city'].lower() == city.lower()]
+        queryset = queryset.filter(city__iexact=city)
 
-    search = request.GET.get('search', '').lower()
+    search = request.GET.get('search', '').strip()
     if search:
-        hospitals = [h for h in hospitals if
-                     search in h['name'].lower() or
-                     search in h['address'].lower() or
-                     any(search in s.lower() for s in h['specializations'])
-                     ]
+        queryset = queryset.filter(
+            Q(name__icontains=search) |
+            Q(address__icontains=search) |
+            Q(specializations__icontains=search)
+        )
+
+    is_24_hours = request.GET.get('is_24_hours')
+    if is_24_hours == 'true':
+        queryset = queryset.filter(is_24_hours=True)
+
+    # User location for distance calculation
+    user_lat = request.GET.get('lat')
+    user_lng = request.GET.get('lng')
 
     # Sort
-    sort_by = request.GET.get('sort', 'distance')
-    if sort_by == 'distance':
-        hospitals.sort(key=lambda x: x.get('distance', 999))
-    elif sort_by == 'rating':
-        hospitals.sort(key=lambda x: x.get('rating', 0), reverse=True)
+    sort_by = request.GET.get('sort', 'rating')
+    if sort_by == 'rating':
+        queryset = queryset.order_by('-rating', 'name')
     elif sort_by == 'name':
-        hospitals.sort(key=lambda x: x.get('name', ''))
+        queryset = queryset.order_by('name')
+    elif sort_by == 'reviews':
+        queryset = queryset.order_by('-reviews_count')
+
+    hospitals = [hospital_to_dict(h, user_lat, user_lng) for h in queryset[:50]]
+
+    # Sort by distance if user location provided
+    if sort_by == 'distance' and user_lat and user_lng:
+        hospitals.sort(key=lambda x: x.get('distance') or 9999)
 
     return Response({
         'count': len(hospitals),
@@ -158,67 +111,28 @@ def hospitals_list(request):
 def hospital_detail(request, pk):
     """Kasalxona tafsilotlari"""
 
-    hospital = {
-        'id': pk,
-        'name': 'Toshkent Tibbiyot Akademiyasi Klinikasi',
-        'hospital_type': 'hospital',
-        'type_display': 'Kasalxona',
-        'address': 'Toshkent sh., Almazar tumani, Farobiy ko\'chasi 2',
-        'city': 'Toshkent',
-        'latitude': 41.311081,
-        'longitude': 69.279737,
-        'phone': '+998 71 268 50 00',
-        'email': 'info@tma.uz',
-        'website': 'https://tma.uz',
-        'rating': 4.5,
-        'reviews_count': 128,
-        'is_24_hours': True,
-        'working_hours': {
-            'mon': '00:00 - 24:00',
-            'tue': '00:00 - 24:00',
-            'wed': '00:00 - 24:00',
-            'thu': '00:00 - 24:00',
-            'fri': '00:00 - 24:00',
-            'sat': '00:00 - 24:00',
-            'sun': '00:00 - 24:00',
-        },
-        'specializations': ['Kardiologiya', 'Nevrologiya', 'Terapiya', 'Jarrohlik'],
-        'services': [
-            'Ambulator qabul',
-            'Statsionar davolash',
-            'Shoshilinch yordam',
-            'Laboratoriya xizmatlari',
-            'Diagnostika',
-            'Fizioterapiya',
-        ],
-        'description': "O'zbekistondagi eng yirik davlat tibbiyot muassasasi. 1935 yilda tashkil etilgan. Har yili minglab bemorlar sifatli tibbiy xizmat oladi.",
-        'image_url': '/media/hospitals/tma.jpg',
-        'reviews': [
-            {
-                'id': 1,
-                'user_name': 'Alisher K.',
-                'rating': 5,
-                'comment': 'Ajoyib shifokorlar va sifatli xizmat! Tavsiya qilaman.',
-                'date': '2024-01-15'
-            },
-            {
-                'id': 2,
-                'user_name': 'Madina R.',
-                'rating': 4,
-                'comment': 'Yaxshi, lekin navbat kutish kerak bo\'ladi.',
-                'date': '2024-01-10'
-            },
-            {
-                'id': 3,
-                'user_name': 'Bobur T.',
-                'rating': 5,
-                'comment': 'Professional xizmat, hamma narsa toza va tartibli.',
-                'date': '2024-01-05'
-            },
-        ]
-    }
+    try:
+        hospital = Hospital.objects.get(pk=pk, is_active=True)
+    except Hospital.DoesNotExist:
+        return Response({'error': 'Kasalxona topilmadi'}, status=status.HTTP_404_NOT_FOUND)
 
-    return Response(hospital)
+    # User location
+    user_lat = request.GET.get('lat')
+    user_lng = request.GET.get('lng')
+
+    data = hospital_to_dict(hospital, user_lat, user_lng)
+
+    # Add reviews
+    reviews = hospital.reviews.select_related('user').order_by('-created_at')[:10]
+    data['reviews'] = [{
+        'id': r.id,
+        'user_name': r.user.first_name or r.user.email.split('@')[0],
+        'rating': r.rating,
+        'comment': r.comment,
+        'date': str(r.created_at.date()),
+    } for r in reviews]
+
+    return Response(data)
 
 
 @api_view(['POST'])
@@ -226,24 +140,46 @@ def hospital_detail(request, pk):
 def hospital_review(request, pk):
     """Kasalxonaga sharh qoldirish"""
 
+    try:
+        hospital = Hospital.objects.get(pk=pk, is_active=True)
+    except Hospital.DoesNotExist:
+        return Response({'error': 'Kasalxona topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
     rating = request.data.get('rating')
     comment = request.data.get('comment', '')
 
     if not rating or not (1 <= int(rating) <= 5):
         return Response({'error': 'Rating 1-5 oralig\'ida bo\'lishi kerak'}, status=400)
 
-    review = {
-        'id': random.randint(100, 999),
-        'hospital_id': pk,
-        'user_name': request.user.get_full_name() or request.user.phone,
-        'rating': int(rating),
-        'comment': comment,
-        'date': str(timezone.now().date()),
-    }
+    # Check if user already reviewed
+    existing = HospitalReview.objects.filter(hospital=hospital, user=request.user).first()
+    if existing:
+        # Update existing review
+        existing.rating = int(rating)
+        existing.comment = comment
+        existing.save()
+        review = existing
+        message = 'Sharhingiz yangilandi!'
+    else:
+        # Create new review
+        review = HospitalReview.objects.create(
+            hospital=hospital,
+            user=request.user,
+            rating=int(rating),
+            comment=comment
+        )
+        message = 'Sharhingiz qabul qilindi!'
 
     return Response({
-        'message': 'Sharhingiz qabul qilindi!',
-        'review': review
+        'message': message,
+        'review': {
+            'id': review.id,
+            'hospital_id': hospital.id,
+            'user_name': request.user.first_name or request.user.email.split('@')[0],
+            'rating': review.rating,
+            'comment': review.comment,
+            'date': str(review.created_at.date()),
+        }
     }, status=status.HTTP_201_CREATED)
 
 
@@ -254,44 +190,63 @@ def nearby_hospitals(request):
 
     lat = request.GET.get('lat')
     lng = request.GET.get('lng')
-    radius = request.GET.get('radius', 5)  # km
+    radius = float(request.GET.get('radius', 5))  # km
     hospital_type = request.GET.get('type')
 
-    # Demo - real loyihada koordinatalar bo'yicha hisoblash
-    hospitals = [
-        {
-            'id': 4,
-            'name': 'Dori-Darmon Dorixonasi',
-            'hospital_type': 'pharmacy',
-            'type_display': 'Dorixona',
-            'distance': 1.2,
-            'is_24_hours': True,
-            'rating': 4.3,
-        },
-        {
-            'id': 1,
-            'name': 'Toshkent Tibbiyot Akademiyasi Klinikasi',
-            'hospital_type': 'hospital',
-            'type_display': 'Kasalxona',
-            'distance': 2.5,
-            'is_24_hours': True,
-            'rating': 4.5,
-        },
-        {
-            'id': 3,
-            'name': 'Premium Med Clinic',
-            'hospital_type': 'clinic',
-            'type_display': 'Klinika',
-            'distance': 3.1,
-            'is_24_hours': False,
-            'rating': 4.8,
-        },
-    ]
+    if not lat or not lng:
+        return Response({'error': 'lat va lng parametrlari kerak'}, status=400)
+
+    try:
+        user_lat = float(lat)
+        user_lng = float(lng)
+    except ValueError:
+        return Response({'error': 'Noto\'g\'ri koordinatalar'}, status=400)
+
+    queryset = Hospital.objects.filter(
+        is_active=True,
+        latitude__isnull=False,
+        longitude__isnull=False
+    )
 
     if hospital_type:
-        hospitals = [h for h in hospitals if h['hospital_type'] == hospital_type]
+        queryset = queryset.filter(hospital_type=hospital_type)
+
+    # Calculate distances and filter
+    hospitals = []
+    for h in queryset:
+        distance = calculate_distance(user_lat, user_lng, h.latitude, h.longitude)
+        if distance and distance <= radius:
+            data = {
+                'id': h.id,
+                'name': h.name,
+                'hospital_type': h.hospital_type,
+                'type_display': h.get_hospital_type_display(),
+                'distance': distance,
+                'is_24_hours': h.is_24_hours,
+                'rating': float(h.rating),
+                'address': h.address,
+                'phone': h.phone,
+            }
+            hospitals.append(data)
+
+    # Sort by distance
+    hospitals.sort(key=lambda x: x['distance'])
 
     return Response({
         'count': len(hospitals),
-        'hospitals': hospitals
+        'hospitals': hospitals[:20]
     })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def hospital_types(request):
+    """Kasalxona turlari"""
+    types = [
+        {'value': 'hospital', 'label': 'Kasalxona'},
+        {'value': 'clinic', 'label': 'Klinika'},
+        {'value': 'pharmacy', 'label': 'Dorixona'},
+        {'value': 'laboratory', 'label': 'Laboratoriya'},
+        {'value': 'dental', 'label': 'Stomatologiya'},
+    ]
+    return Response(types)

@@ -133,3 +133,68 @@ class ChatNotification(models.Model):
 
     class Meta:
         unique_together = ['user', 'room']
+
+
+class VideoCall(models.Model):
+    """Video qo'ng'iroq"""
+    CALL_STATUS = [
+        ('pending', 'Kutilmoqda'),
+        ('ringing', 'Jiringlamoqda'),
+        ('active', 'Faol'),
+        ('ended', 'Tugadi'),
+        ('missed', 'Javobsiz'),
+        ('declined', 'Rad etildi'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.CASCADE,
+        related_name='video_calls'
+    )
+    caller = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='outgoing_calls'
+    )
+    receiver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='incoming_calls'
+    )
+
+    status = models.CharField(max_length=20, choices=CALL_STATUS, default='pending')
+
+    # Call timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration = models.PositiveIntegerField(default=0)  # sekund
+
+    # WebRTC signaling
+    caller_offer = models.TextField(blank=True)  # SDP offer
+    receiver_answer = models.TextField(blank=True)  # SDP answer
+    ice_candidates = models.JSONField(default=list)
+
+    # Call info
+    is_video = models.BooleanField(default=True)  # False = audio only
+    call_quality = models.CharField(max_length=20, blank=True)  # HD, SD, etc
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Video qo\'ng\'iroq'
+        verbose_name_plural = 'Video qo\'ng\'iroqlar'
+
+    def __str__(self):
+        return f"Call: {self.caller} -> {self.receiver} ({self.status})"
+
+    @property
+    def duration_formatted(self):
+        """Davomiylikni formatlash (00:00:00)"""
+        hours = self.duration // 3600
+        minutes = (self.duration % 3600) // 60
+        seconds = self.duration % 60
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes:02d}:{seconds:02d}"

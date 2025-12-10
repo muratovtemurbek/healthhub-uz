@@ -3,18 +3,22 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Star, MapPin, Clock, Calendar,
-  Award, CheckCircle, User, CreditCard, AlertCircle
+  Award, CheckCircle, User, CreditCard, AlertCircle, Loader2
 } from 'lucide-react';
-import apiClient from '../api/client';
+import api from '../services/api';
 
 interface Doctor {
   id: string;
+  name?: string;
   first_name?: string;
   last_name?: string;
+  specialization?: string;
   specialty_display?: string;
   hospital_name?: string;
+  hospital?: { name: string } | string;
   experience_years: number;
   consultation_fee?: number;
+  consultation_price?: number;
   rating: number;
   bio?: string;
   is_available: boolean;
@@ -25,31 +29,6 @@ interface TimeSlot {
   time: string;
   available: boolean;
 }
-
-// Demo shifokorlar
-const demoDoctors: Record<string, Doctor> = {
-  '1': { id: '1', first_name: 'Akbar', last_name: 'Karimov', specialty_display: 'Kardiolog', hospital_name: 'Toshkent Tibbiyot Markazi', experience_years: 15, consultation_fee: 150000, rating: 4.9, bio: 'Yurak-qon tomir kasalliklari bo\'yicha 15 yillik tajriba.', is_available: true, languages: ['O\'zbek', 'Rus', 'Ingliz'] },
-  '2': { id: '2', first_name: 'Malika', last_name: 'Rahimova', specialty_display: 'Nevrolog', hospital_name: 'Respublika Markazi', experience_years: 12, consultation_fee: 120000, rating: 4.8, bio: 'Asab tizimi kasalliklari mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '3': { id: '3', first_name: 'Bobur', last_name: 'Alimov', specialty_display: 'Pediatr', hospital_name: 'Bolalar Shifoxonasi', experience_years: 8, consultation_fee: 100000, rating: 4.7, bio: 'Bolalar salomatligi mutaxassisi.', is_available: false, languages: ['O\'zbek', 'Rus'] },
-  '4': { id: '4', first_name: 'Nilufar', last_name: 'Saidova', specialty_display: 'Dermatolog', hospital_name: 'Derma Klinika', experience_years: 6, consultation_fee: 80000, rating: 4.6, bio: 'Teri kasalliklari mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '5': { id: '5', first_name: 'Jasur', last_name: 'Toshmatov', specialty_display: 'Ortoped', hospital_name: 'Travmatologiya Markazi', experience_years: 10, consultation_fee: 130000, rating: 4.5, bio: 'Suyak-bo\'g\'im kasalliklari mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '6': { id: '6', first_name: 'Gulnora', last_name: 'Azimova', specialty_display: 'Ginekolog', hospital_name: 'Ayollar Markazi', experience_years: 14, consultation_fee: 140000, rating: 4.9, bio: 'Ayollar sog\'lig\'i mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '7': { id: '7', first_name: 'Sardor', last_name: 'Mahmudov', specialty_display: 'Oftalmolog', hospital_name: 'Ko\'z Markazi', experience_years: 9, consultation_fee: 110000, rating: 4.7, bio: 'Ko\'z kasalliklari mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '8': { id: '8', first_name: 'Timur', last_name: 'Yusupov', specialty_display: 'Stomatolog', hospital_name: 'Dental Pro', experience_years: 7, consultation_fee: 90000, rating: 4.8, bio: 'Tish davolash mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '9': { id: '9', first_name: 'Dilshod', last_name: 'Rasulov', specialty_display: 'Umumiy amaliyot', hospital_name: 'Oilaviy Poliklinika', experience_years: 11, consultation_fee: 70000, rating: 4.5, bio: 'Umumiy tibbiy maslahat.', is_available: true, languages: ['O\'zbek', 'Rus'] },
-  '10': { id: '10', first_name: 'Zarina', last_name: 'Karimova', specialty_display: 'Endokrinolog', hospital_name: 'Endokrinologiya Markazi', experience_years: 13, consultation_fee: 125000, rating: 4.8, bio: 'Gormon tizimi mutaxassisi.', is_available: true, languages: ['O\'zbek', 'Rus'] }
-};
-
-const generateTimeSlots = (): TimeSlot[] => {
-  const slots: TimeSlot[] = [];
-  for (let hour = 9; hour <= 17; hour++) {
-    slots.push({ time: `${hour.toString().padStart(2, '0')}:00`, available: Math.random() > 0.3 });
-    if (hour < 17) {
-      slots.push({ time: `${hour.toString().padStart(2, '0')}:30`, available: Math.random() > 0.3 });
-    }
-  }
-  return slots;
-};
 
 export default function BookAppointment() {
   const { doctorId } = useParams<{ doctorId: string }>();
@@ -72,31 +51,62 @@ export default function BookAppointment() {
   }, [doctorId]);
 
   useEffect(() => {
-    if (selectedDate) {
-      setTimeSlots(generateTimeSlots());
+    if (selectedDate && doctorId) {
+      fetchTimeSlots(selectedDate);
       setSelectedTime('');
     }
-  }, [selectedDate]);
+  }, [selectedDate, doctorId]);
 
   const fetchDoctor = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get(`/api/doctors/${doctorId}/`);
+      const res = await api.get(`/doctors/list/${doctorId}/`);
       setDoctor(res.data);
-    } catch {
-      // Demo data
-      setDoctor(demoDoctors[doctorId || '1'] || demoDoctors['1']);
+    } catch (err) {
+      console.error('Shifokor yuklashda xatolik:', err);
+      setError('Shifokor topilmadi');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchTimeSlots = async (date: string) => {
+    try {
+      const res = await api.get(`/appointments/available-slots/${doctorId}/`, {
+        params: { date }
+      });
+      setTimeSlots(res.data);
+    } catch (err) {
+      console.error('Vaqtlarni yuklashda xatolik:', err);
+      // Fallback: generate default slots
+      const slots: TimeSlot[] = [];
+      for (let hour = 9; hour <= 17; hour++) {
+        slots.push({ time: `${hour.toString().padStart(2, '0')}:00`, available: true });
+        if (hour < 17) {
+          slots.push({ time: `${hour.toString().padStart(2, '0')}:30`, available: true });
+        }
+      }
+      setTimeSlots(slots);
+    }
+  };
+
   const getDoctorName = (): string => {
     if (!doctor) return '';
+    if (doctor.name) return doctor.name.replace('Dr. ', '');
     return `${doctor.first_name || ''} ${doctor.last_name || ''}`.trim() || 'Shifokor';
   };
 
-  const getPrice = (): number => doctor?.consultation_fee || 100000;
+  const getPrice = (): number => doctor?.consultation_fee || doctor?.consultation_price || 100000;
+
+  const getSpecialty = (): string => {
+    return doctor?.specialty_display || doctor?.specialization || 'Mutaxassis';
+  };
+
+  const getHospitalName = (): string => {
+    if (!doctor?.hospital) return 'Tibbiyot markazi';
+    if (typeof doctor.hospital === 'string') return doctor.hospital;
+    return doctor.hospital.name || 'Tibbiyot markazi';
+  };
 
   const getAvailableDates = () => {
     const dates = [];
@@ -124,7 +134,7 @@ export default function BookAppointment() {
     setError('');
 
     try {
-      await apiClient.post('/api/appointments/', {
+      await api.post('/appointments/', {
         doctor: doctorId,
         date: selectedDate,
         time: selectedTime,
@@ -132,9 +142,15 @@ export default function BookAppointment() {
       });
       setBookingSuccess(true);
     } catch (err: any) {
-      // 405, 401, 500 va boshqa xatoliklar uchun demo muvaffaqiyat
-      console.log('Booking API xatosi, demo muvaffaqiyat ko\'rsatilmoqda');
-      setBookingSuccess(true);
+      console.error('Booking xatosi:', err);
+      if (err.response?.status === 401) {
+        setError('Navbatga yozilish uchun tizimga kiring');
+        setTimeout(() => navigate('/login'), 2000);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError('Xatolik yuz berdi. Qaytadan urinib ko\'ring.');
+      }
     } finally {
       setBooking(false);
     }
@@ -144,7 +160,7 @@ export default function BookAppointment() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-gray-500">Yuklanmoqda...</p>
         </div>
       </div>
@@ -212,13 +228,13 @@ export default function BookAppointment() {
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">Dr. {getDoctorName()}</h2>
-              <p className="text-blue-600 font-medium">{doctor.specialty_display}</p>
+              <p className="text-blue-600 font-medium">{getSpecialty()}</p>
               <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                 <span className="flex items-center"><Star className="h-4 w-4 text-yellow-500 fill-yellow-400 mr-1" />{doctor.rating}</span>
                 <span className="flex items-center"><Award className="h-4 w-4 text-purple-500 mr-1" />{doctor.experience_years} yil</span>
               </div>
               <div className="flex items-center mt-2 text-sm text-gray-500">
-                <MapPin className="h-4 w-4 mr-1" />{doctor.hospital_name}
+                <MapPin className="h-4 w-4 mr-1" />{getHospitalName()}
               </div>
             </div>
           </div>

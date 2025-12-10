@@ -66,7 +66,7 @@ INSTALLED_APPS = [
     'payments',
     'chat',
     'air_quality',
-    #'hospitals',
+    'hospitals',
 'admin_panel',
 ]
 

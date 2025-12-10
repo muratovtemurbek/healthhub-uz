@@ -4,9 +4,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Search, Star, MapPin,
   ChevronRight, X, SlidersHorizontal,
-  Stethoscope, Award, Calendar
+  Stethoscope, Award, Calendar, Loader2
 } from 'lucide-react';
-import apiClient from '../api/client';
+import api from '../services/api';
 
 interface Doctor {
   id: string;
@@ -36,180 +36,12 @@ interface Specialization {
   icon?: string;
 }
 
-// Demo shifokorlar - API ishlamasa ishlatiladi
-const demoDoctors: Doctor[] = [
-  {
-    id: '1',
-    first_name: 'Akbar',
-    last_name: 'Karimov',
-    email: 'dr.karimov@healthhub.uz',
-    phone: '+998901234567',
-    specialty: 'cardiology',
-    specialty_display: 'Kardiolog',
-    hospital_name: 'Toshkent Tibbiyot Markazi',
-    experience_years: 15,
-    consultation_fee: 150000,
-    rating: 4.9,
-    bio: 'Yurak-qon tomir kasalliklari bo\'yicha 15 yillik tajriba. 500+ muvaffaqiyatli operatsiya.',
-    is_available: true
-  },
-  {
-    id: '2',
-    first_name: 'Malika',
-    last_name: 'Rahimova',
-    email: 'dr.rahimova@healthhub.uz',
-    phone: '+998907654321',
-    specialty: 'neurology',
-    specialty_display: 'Nevrolog',
-    hospital_name: 'Respublika Ixtisoslashtirilgan Markazi',
-    experience_years: 12,
-    consultation_fee: 120000,
-    rating: 4.8,
-    bio: 'Asab tizimi kasalliklari mutaxassisi. Bosh og\'rig\'i va migren davolash bo\'yicha ekspert.',
-    is_available: true
-  },
-  {
-    id: '3',
-    first_name: 'Bobur',
-    last_name: 'Alimov',
-    email: 'dr.alimov@healthhub.uz',
-    phone: '+998901112233',
-    specialty: 'pediatrics',
-    specialty_display: 'Pediatr',
-    hospital_name: 'Bolalar Shifoxonasi №1',
-    experience_years: 8,
-    consultation_fee: 100000,
-    rating: 4.7,
-    bio: 'Bolalar salomatligi bo\'yicha mutaxassis. Emlash va rivojlanish kuzatuvi.',
-    is_available: false
-  },
-  {
-    id: '4',
-    first_name: 'Nilufar',
-    last_name: 'Saidova',
-    email: 'dr.saidova@healthhub.uz',
-    phone: '+998905556677',
-    specialty: 'dermatology',
-    specialty_display: 'Dermatolog',
-    hospital_name: 'Derma Klinika',
-    experience_years: 6,
-    consultation_fee: 80000,
-    rating: 4.6,
-    bio: 'Teri kasalliklari va kosmetologiya. Akne, ekzema va psoriaz davolash.',
-    is_available: true
-  },
-  {
-    id: '5',
-    first_name: 'Jasur',
-    last_name: 'Toshmatov',
-    email: 'dr.toshmatov@healthhub.uz',
-    phone: '+998909998877',
-    specialty: 'orthopedics',
-    specialty_display: 'Ortoped-travmatolog',
-    hospital_name: 'Travmatologiya Markazi',
-    experience_years: 10,
-    consultation_fee: 130000,
-    rating: 4.5,
-    bio: 'Suyak-bo\'g\'im kasalliklari va jarohatlar. Sport travmalari mutaxassisi.',
-    is_available: true
-  },
-  {
-    id: '6',
-    first_name: 'Gulnora',
-    last_name: 'Azimova',
-    email: 'dr.azimova@healthhub.uz',
-    phone: '+998903334455',
-    specialty: 'gynecology',
-    specialty_display: 'Ginekolog',
-    hospital_name: 'Ayollar Sog\'ligi Markazi',
-    experience_years: 14,
-    consultation_fee: 140000,
-    rating: 4.9,
-    bio: 'Ayollar sog\'lig\'i va homiladorlik kuzatuvi. 1000+ muvaffaqiyatli tug\'ruq.',
-    is_available: true
-  },
-  {
-    id: '7',
-    first_name: 'Sardor',
-    last_name: 'Mahmudov',
-    email: 'dr.mahmudov@healthhub.uz',
-    phone: '+998906667788',
-    specialty: 'ophthalmology',
-    specialty_display: 'Oftalmolog',
-    hospital_name: 'Ko\'z Kasalliklari Markazi',
-    experience_years: 9,
-    consultation_fee: 110000,
-    rating: 4.7,
-    bio: 'Ko\'z kasalliklari va ko\'rish tiklash. Lazer korreksiya mutaxassisi.',
-    is_available: true
-  },
-  {
-    id: '8',
-    first_name: 'Timur',
-    last_name: 'Yusupov',
-    email: 'dr.yusupov@healthhub.uz',
-    phone: '+998901122334',
-    specialty: 'dentistry',
-    specialty_display: 'Stomatolog',
-    hospital_name: 'Dental Pro Klinika',
-    experience_years: 7,
-    consultation_fee: 90000,
-    rating: 4.8,
-    bio: 'Tish davolash va protezlash. Implantatsiya va estetik stomatologiya.',
-    is_available: true
-  },
-  {
-    id: '9',
-    first_name: 'Dilshod',
-    last_name: 'Rasulov',
-    email: 'dr.rasulov@healthhub.uz',
-    phone: '+998904445566',
-    specialty: 'general',
-    specialty_display: 'Umumiy amaliyot shifokori',
-    hospital_name: 'Oilaviy Poliklinika №5',
-    experience_years: 11,
-    consultation_fee: 70000,
-    rating: 4.5,
-    bio: 'Umumiy tibbiy maslahat va profilaktika. Oilaviy tibbiyot mutaxassisi.',
-    is_available: true
-  },
-  {
-    id: '10',
-    first_name: 'Zarina',
-    last_name: 'Karimova',
-    email: 'dr.zkarimova@healthhub.uz',
-    phone: '+998907778899',
-    specialty: 'endocrinology',
-    specialty_display: 'Endokrinolog',
-    hospital_name: 'Endokrinologiya Dispanseri',
-    experience_years: 13,
-    consultation_fee: 125000,
-    rating: 4.8,
-    bio: 'Qalqonsimon bez va diabet kasalliklari. Gormon tizimi mutaxassisi.',
-    is_available: true
-  }
-];
-
-// Demo mutaxassisliklar
-const demoSpecializations: Specialization[] = [
-  { id: 1, name: 'cardiology', name_uz: 'Kardiolog', icon: '❤️' },
-  { id: 2, name: 'neurology', name_uz: 'Nevrolog', icon: '🧠' },
-  { id: 3, name: 'pediatrics', name_uz: 'Pediatr', icon: '👶' },
-  { id: 4, name: 'dermatology', name_uz: 'Dermatolog', icon: '🩹' },
-  { id: 5, name: 'orthopedics', name_uz: 'Ortoped', icon: '🦴' },
-  { id: 6, name: 'gynecology', name_uz: 'Ginekolog', icon: '👩' },
-  { id: 7, name: 'ophthalmology', name_uz: 'Oftalmolog', icon: '👁️' },
-  { id: 8, name: 'dentistry', name_uz: 'Stomatolog', icon: '🦷' },
-  { id: 9, name: 'general', name_uz: 'Umumiy amaliyot', icon: '🩺' },
-  { id: 10, name: 'endocrinology', name_uz: 'Endokrinolog', icon: '💉' },
-];
-
 export default function Doctors() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [specializations, setSpecializations] = useState<Specialization[]>(demoSpecializations);
+  const [specializations, setSpecializations] = useState<Specialization[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -236,67 +68,27 @@ export default function Doctors() {
     setLoading(true);
 
     try {
-      // Shifokorlarni yuklash - bir necha endpoint sinab ko'ramiz
-      let doctorsList: Doctor[] = [];
-
-      // 1-urinish: /api/doctors/
-      try {
-        const res = await apiClient.get('/api/doctors/');
-        const data = res.data;
-        doctorsList = Array.isArray(data) ? data : (data.results || data.doctors || []);
-        console.log('✅ /api/doctors/ dan yuklandi:', doctorsList.length);
-      } catch (e) {
-        console.log('⚠️ /api/doctors/ ishlamadi');
-      }
-
-      // 2-urinish: /api/doctors/doctors/
-      if (doctorsList.length === 0) {
-        try {
-          const res = await apiClient.get('/api/doctors/doctors/');
-          const data = res.data;
-          doctorsList = Array.isArray(data) ? data : (data.results || []);
-          console.log('✅ /api/doctors/doctors/ dan yuklandi:', doctorsList.length);
-        } catch (e) {
-          console.log('⚠️ /api/doctors/doctors/ ishlamadi');
-        }
-      }
-
-      // 3-urinish: /api/doctors/list/
-      if (doctorsList.length === 0) {
-        try {
-          const res = await apiClient.get('/api/doctors/list/');
-          const data = res.data;
-          doctorsList = Array.isArray(data) ? data : (data.results || []);
-          console.log('✅ /api/doctors/list/ dan yuklandi:', doctorsList.length);
-        } catch (e) {
-          console.log('⚠️ /api/doctors/list/ ishlamadi');
-        }
-      }
-
-      // Agar API dan bo'sh kelsa, demo data ishlatamiz
-      if (doctorsList.length === 0) {
-        console.log('📋 Demo shifokorlar ishlatilmoqda');
-        doctorsList = demoDoctors;
-      }
-
+      // Shifokorlarni yuklash
+      const doctorsRes = await api.get('/doctors/list/');
+      const doctorsData = doctorsRes.data;
+      const doctorsList = Array.isArray(doctorsData) ? doctorsData : (doctorsData.results || []);
       setDoctors(doctorsList);
 
       // Mutaxassisliklarni yuklash
       try {
-        const specsRes = await apiClient.get('/api/doctors/specializations/');
+        const specsRes = await api.get('/doctors/specializations/');
         const specsData = specsRes.data;
         const specsList = Array.isArray(specsData) ? specsData : (specsData.results || []);
         if (specsList.length > 0) {
           setSpecializations(specsList);
         }
       } catch (e) {
-        // Demo ishlatamiz
-        console.log('📋 Demo mutaxassisliklar ishlatilmoqda');
+        console.log('Mutaxassisliklar yuklanmadi');
       }
 
     } catch (err) {
-      console.error('❌ Yuklashda xatolik:', err);
-      setDoctors(demoDoctors);
+      console.error('Shifokorlarni yuklashda xatolik:', err);
+      setDoctors([]);
     } finally {
       setLoading(false);
     }

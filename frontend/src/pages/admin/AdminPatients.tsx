@@ -1,38 +1,91 @@
 // src/pages/admin/AdminPatients.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search, Plus, Filter, MoreVertical, Users,
   Phone, Mail, Edit2, Trash2, Eye, CheckCircle,
-  XCircle, Calendar, MapPin
+  XCircle, Calendar, MapPin, Loader2, Power, PowerOff
 } from 'lucide-react';
+import api from '../../services/api';
 
 interface Patient {
-  id: number;
+  id: string;
   name: string;
   phone: string;
   email?: string;
-  age: number;
-  gender: 'male' | 'female';
-  address: string;
+  avatar?: string;
+  age: number | null;
+  gender: 'male' | 'female' | null;
+  address: string | null;
   total_visits: number;
-  last_visit: string;
+  last_visit: string | null;
   status: 'active' | 'inactive';
   registered: string;
+}
+
+interface Stats {
+  total: number;
+  active: number;
+  inactive: number;
+  new_this_week: number;
+  new_this_month: number;
 }
 
 export default function AdminPatients() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [patients] = useState<Patient[]>([
-    { id: 1, name: 'Aziza Karimova', phone: '+998 90 123 45 67', email: 'aziza@mail.uz', age: 34, gender: 'female', address: 'Toshkent, Chilonzor', total_visits: 8, last_visit: '2024-01-20', status: 'active', registered: '2023-05-15' },
-    { id: 2, name: 'Bobur Aliyev', phone: '+998 91 234 56 78', age: 45, gender: 'male', address: 'Toshkent, Yunusobod', total_visits: 12, last_visit: '2024-01-19', status: 'active', registered: '2022-11-20' },
-    { id: 3, name: 'Dilnoza Rahimova', phone: '+998 93 345 67 89', email: 'dilnoza@mail.uz', age: 28, gender: 'female', address: 'Toshkent, Mirzo Ulugbek', total_visits: 5, last_visit: '2024-01-18', status: 'active', registered: '2023-08-10' },
-    { id: 4, name: 'Eldor Toshmatov', phone: '+998 94 456 78 90', age: 52, gender: 'male', address: 'Toshkent, Shayxontohur', total_visits: 15, last_visit: '2024-01-15', status: 'active', registered: '2021-03-05' },
-    { id: 5, name: 'Feruza Umarova', phone: '+998 95 567 89 01', age: 41, gender: 'female', address: 'Toshkent, Yakkasaroy', total_visits: 6, last_visit: '2024-01-14', status: 'inactive', registered: '2023-01-25' },
-    { id: 6, name: 'Gulnora Saidova', phone: '+998 97 678 90 12', email: 'gulnora@mail.uz', age: 38, gender: 'female', address: 'Toshkent, Sergeli', total_visits: 9, last_visit: '2024-01-12', status: 'active', registered: '2022-06-18' },
-    { id: 7, name: 'Husan Qodirov', phone: '+998 99 789 01 23', age: 55, gender: 'male', address: 'Toshkent, Olmazor', total_visits: 3, last_visit: '2023-12-20', status: 'inactive', registered: '2023-10-01' },
-  ]);
+  const fetchPatients = async () => {
+    try {
+      const params: Record<string, string> = {};
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (searchQuery) params.search = searchQuery;
+
+      const response = await api.get('/admin-panel/patients/', { params });
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Fetch patients error:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/admin-panel/patients/stats/');
+      setStats(response.data);
+    } catch (error) {
+      console.error('Fetch stats error:', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchPatients(), fetchStats()]);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    fetchPatients();
+  }, [statusFilter, searchQuery]);
+
+  const handleToggleStatus = async (patient: Patient) => {
+    try {
+      if (patient.status === 'active') {
+        await api.post(`/admin-panel/patients/${patient.id}/deactivate/`);
+      } else {
+        await api.post(`/admin-panel/patients/${patient.id}/activate/`);
+      }
+      fetchPatients();
+      fetchStats();
+    } catch (error) {
+      console.error('Toggle status error:', error);
+      alert('Xatolik yuz berdi');
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -42,18 +95,16 @@ export default function AdminPatients() {
     }
   };
 
-  const filteredPatients = patients.filter(p => {
-    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase()) && !p.phone.includes(searchQuery)) return false;
-    return true;
-  });
-
-  const stats = {
-    total: patients.length,
-    active: patients.filter(p => p.status === 'active').length,
-    inactive: patients.filter(p => p.status === 'inactive').length,
-    thisMonth: patients.filter(p => new Date(p.registered).getMonth() === new Date().getMonth()).length,
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
@@ -63,10 +114,6 @@ export default function AdminPatients() {
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Bemorlar</h1>
           <p className="text-gray-500 mt-1">Barcha bemorlarni boshqaring</p>
         </div>
-        <button className="mt-4 lg:mt-0 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <Plus className="h-5 w-5" />
-          Yangi bemor
-        </button>
       </div>
 
       {/* Stats */}
@@ -74,7 +121,7 @@ export default function AdminPatients() {
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.total || 0}</p>
               <p className="text-sm text-gray-500">Jami bemorlar</p>
             </div>
             <Users className="h-8 w-8 text-blue-500" />
@@ -83,7 +130,7 @@ export default function AdminPatients() {
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+              <p className="text-2xl font-bold text-green-600">{stats?.active || 0}</p>
               <p className="text-sm text-gray-500">Faol</p>
             </div>
             <CheckCircle className="h-8 w-8 text-green-500" />
@@ -92,7 +139,7 @@ export default function AdminPatients() {
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
+              <p className="text-2xl font-bold text-red-600">{stats?.inactive || 0}</p>
               <p className="text-sm text-gray-500">Nofaol</p>
             </div>
             <XCircle className="h-8 w-8 text-red-500" />
@@ -101,8 +148,8 @@ export default function AdminPatients() {
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-purple-600">{stats.thisMonth}</p>
-              <p className="text-sm text-gray-500">Bu oy</p>
+              <p className="text-2xl font-bold text-purple-600">{stats?.new_this_month || 0}</p>
+              <p className="text-sm text-gray-500">Bu oy yangi</p>
             </div>
             <Calendar className="h-8 w-8 text-purple-500" />
           </div>
@@ -156,36 +203,48 @@ export default function AdminPatients() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredPatients.map((patient) => (
+              {patients.map((patient) => (
                 <tr key={patient.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-white font-semibold">{patient.name.charAt(0)}</span>
-                      </div>
+                      {patient.avatar ? (
+                        <img src={patient.avatar} alt={patient.name} className="w-10 h-10 rounded-full object-cover mr-3" />
+                      ) : (
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-3">
+                          <span className="text-white font-semibold">{patient.name.charAt(0)}</span>
+                        </div>
+                      )}
                       <div>
                         <p className="font-semibold text-gray-900">{patient.name}</p>
-                        <p className="text-sm text-gray-500">{patient.age} yosh • {patient.gender === 'male' ? 'Erkak' : 'Ayol'}</p>
+                        <p className="text-sm text-gray-500">
+                          {patient.age ? `${patient.age} yosh` : ''}
+                          {patient.age && patient.gender ? ' • ' : ''}
+                          {patient.gender === 'male' ? 'Erkak' : patient.gender === 'female' ? 'Ayol' : ''}
+                        </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
                     <div>
-                      <p className="text-sm text-gray-900">{patient.phone}</p>
+                      <p className="text-sm text-gray-900">{patient.phone || '-'}</p>
                       {patient.email && <p className="text-sm text-gray-500">{patient.email}</p>}
                     </div>
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="h-4 w-4 mr-1 text-gray-400" />
-                      {patient.address}
-                    </div>
+                    {patient.address ? (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 mr-1 text-gray-400" />
+                        {patient.address}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-semibold text-gray-900">{patient.total_visits}</span>
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
-                    <span className="text-gray-600">{patient.last_visit}</span>
+                    <span className="text-gray-600">{patient.last_visit || '-'}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
@@ -194,14 +253,16 @@ export default function AdminPatients() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Ko'rish">
-                        <Eye className="h-5 w-5" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Tahrirlash">
-                        <Edit2 className="h-5 w-5" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="O'chirish">
-                        <Trash2 className="h-5 w-5" />
+                      <button
+                        onClick={() => handleToggleStatus(patient)}
+                        className={`p-2 rounded-lg ${
+                          patient.status === 'active'
+                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                            : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                        }`}
+                        title={patient.status === 'active' ? 'Bloklash' : 'Faollashtirish'}
+                      >
+                        {patient.status === 'active' ? <PowerOff className="h-5 w-5" /> : <Power className="h-5 w-5" />}
                       </button>
                     </div>
                   </td>
@@ -211,7 +272,7 @@ export default function AdminPatients() {
           </table>
         </div>
 
-        {filteredPatients.length === 0 && (
+        {patients.length === 0 && (
           <div className="text-center py-12">
             <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">Bemorlar topilmadi</p>
