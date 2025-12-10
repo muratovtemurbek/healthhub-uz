@@ -99,7 +99,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(serializers.Serializer):
     """Login - email YOKI username bilan"""
     username = serializers.CharField(required=False, allow_blank=True, default='')
-    email = serializers.EmailField(required=False, allow_blank=True, default='')
+    email = serializers.CharField(required=False, allow_blank=True, default='')  # CharField ishlatamiz
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
