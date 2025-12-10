@@ -10,10 +10,15 @@ urlpatterns = [
 
     # ============== DOCTORS ==============
     path('doctors/', views.admin_doctors_list, name='admin-doctors-list'),
+    path('doctors/create/', views.admin_doctor_create, name='admin-doctor-create'),
     path('doctors/stats/', views.admin_doctors_stats, name='admin-doctors-stats'),
     path('doctors/<uuid:pk>/', views.admin_doctor_detail, name='admin-doctor-detail'),
     path('doctors/<uuid:pk>/activate/', views.admin_doctor_activate, name='admin-doctor-activate'),
     path('doctors/<uuid:pk>/deactivate/', views.admin_doctor_deactivate, name='admin-doctor-deactivate'),
+
+    # ============== DROPDOWNS ==============
+    path('specializations/', views.admin_specializations_list, name='admin-specializations'),
+    path('hospitals/dropdown/', views.admin_hospitals_dropdown, name='admin-hospitals-dropdown'),
 
     # ============== PATIENTS ==============
     path('patients/', views.admin_patients_list, name='admin-patients-list'),

@@ -664,3 +664,128 @@ def admin_settings_update(request):
     """Tizim sozlamalarini yangilash"""
     # Bu keyinchalik Settings modelga saqlanadi
     return Response({'status': 'updated'})
+
+
+# ============== DOCTOR CREATE ==============
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_doctor_create(request):
+    """Yangi shifokor qo'shish"""
+    from accounts.models import User
+    from doctors.models import Doctor, Specialization, Hospital
+
+    data = request.data
+
+    # Required fields
+    email = data.get('email')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    specialization_id = data.get('specialization_id')
+    hospital_id = data.get('hospital_id')
+    license_number = data.get('license_number')
+
+    if not all([email, first_name, last_name, specialization_id, hospital_id, license_number]):
+        return Response({
+            'error': 'Barcha maydonlar to\'ldirilishi shart'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check email unique
+    if User.objects.filter(email=email).exists():
+        return Response({
+            'error': 'Bu email allaqachon ro\'yxatdan o\'tgan'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check license unique
+    if Doctor.objects.filter(license_number=license_number).exists():
+        return Response({
+            'error': 'Bu litsenziya raqami allaqachon mavjud'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        specialization = Specialization.objects.get(id=specialization_id)
+        hospital = Hospital.objects.get(id=hospital_id)
+    except (Specialization.DoesNotExist, Hospital.DoesNotExist):
+        return Response({
+            'error': 'Mutaxassislik yoki shifoxona topilmadi'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Create user
+    password = data.get('password', 'Doctor123!')
+    username = email.split('@')[0]
+    counter = 1
+    base_username = username
+    while User.objects.filter(username=username).exists():
+        username = f"{base_username}{counter}"
+        counter += 1
+
+    user = User.objects.create_user(
+        email=email,
+        username=username,
+        password=password,
+        first_name=first_name,
+        last_name=last_name,
+        phone=data.get('phone', ''),
+        user_type='doctor'
+    )
+
+    # Create doctor profile
+    doctor = Doctor.objects.create(
+        user=user,
+        specialization=specialization,
+        hospital=hospital,
+        license_number=license_number,
+        experience_years=data.get('experience_years', 0),
+        education=data.get('education', ''),
+        bio=data.get('bio', ''),
+        consultation_price=data.get('consultation_price', 100000),
+        languages=data.get('languages', ['uz']),
+        is_available=data.get('is_available', True),
+        # Default working hours
+        monday={'start': '09:00', 'end': '18:00'},
+        tuesday={'start': '09:00', 'end': '18:00'},
+        wednesday={'start': '09:00', 'end': '18:00'},
+        thursday={'start': '09:00', 'end': '18:00'},
+        friday={'start': '09:00', 'end': '18:00'},
+        saturday={},
+        sunday={},
+    )
+
+    return Response({
+        'id': str(doctor.id),
+        'name': f"Dr. {user.get_full_name()}",
+        'email': user.email,
+        'message': 'Shifokor muvaffaqiyatli qo\'shildi!'
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_specializations_list(request):
+    """Mutaxassisliklar ro'yxati"""
+    from doctors.models import Specialization
+
+    specs = Specialization.objects.all()
+    data = [{
+        'id': s.id,
+        'name': s.name,
+        'name_uz': s.name_uz,
+    } for s in specs]
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_hospitals_dropdown(request):
+    """Shifoxonalar dropdown uchun"""
+    from doctors.models import Hospital
+
+    hospitals = Hospital.objects.all()
+    data = [{
+        'id': str(h.id),
+        'name': h.name,
+        'type': h.get_type_display(),
+    } for h in hospitals]
+
+    return Response(data)
