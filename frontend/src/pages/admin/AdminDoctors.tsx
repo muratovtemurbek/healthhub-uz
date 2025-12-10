@@ -343,8 +343,15 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
       ]);
       setSpecializations(specRes.data || []);
       setHospitals(hospRes.data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching dropdowns:', error);
+      if (error.response?.status === 403) {
+        setError('Admin huquqi kerak. Iltimos admin sifatida kiring.');
+      } else if (error.response?.status === 401) {
+        setError('Avtorizatsiya muddati tugagan. Qayta kiring.');
+      } else {
+        setError('Ma\'lumotlarni yuklashda xatolik');
+      }
     } finally {
       setLoading(false);
     }
@@ -371,11 +378,30 @@ function AddDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     }
   };
 
-  if (loading) {
+  if (loading && !error) {
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl p-8">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error && specializations.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md text-center">
+          <div className="text-red-500 mb-4">
+            <XCircle className="h-12 w-12 mx-auto" />
+          </div>
+          <p className="text-gray-700 mb-4">{error}</p>
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+          >
+            Yopish
+          </button>
         </div>
       </div>
     );

@@ -760,7 +760,7 @@ def admin_doctor_create(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def admin_specializations_list(request):
     """Mutaxassisliklar ro'yxati"""
     from doctors.models import Specialization
@@ -776,7 +776,7 @@ def admin_specializations_list(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def admin_hospitals_dropdown(request):
     """Shifoxonalar dropdown uchun"""
     from doctors.models import Hospital
