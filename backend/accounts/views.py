@@ -1,4 +1,8 @@
 # accounts/views.py
+import logging
+import random
+from datetime import timedelta
+
 from rest_framework import status, generics, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -7,6 +11,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
 import requests
+
+logger = logging.getLogger(__name__)
 
 from .models import User
 from .serializers import (
@@ -106,9 +112,20 @@ class UserViewSet(viewsets.ModelViewSet):
     """Foydalanuvchilar boshqaruvi (Admin uchun)"""
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """Faqat admin foydalanuvchilar ruxsat oladi"""
+        return [IsAuthenticated()]
+
+    def check_admin_permission(self, request):
+        """Admin ekanligini tekshirish"""
+        if not hasattr(request.user, 'user_type') or request.user.user_type != 'admin':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Faqat adminlar uchun ruxsat berilgan")
 
     def list(self, request, *args, **kwargs):
+        self.check_admin_permission(request)
         users = self.queryset.all().order_by('-date_joined')
         data = []
         for u in users:
@@ -126,12 +143,28 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(data)
 
     def create(self, request, *args, **kwargs):
+        self.check_admin_permission(request)
         data = request.data
+
+        # Parol majburiy
+        password = data.get('password')
+        if not password or len(password) < 8:
+            return Response({
+                'error': 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Email majburiy
+        email = data.get('email', '')
+        if not email:
+            return Response({
+                'error': 'Email kiritilishi shart'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             user = User.objects.create_user(
-                username=data.get('username', data.get('email', '').split('@')[0]),
-                email=data.get('email', ''),
-                password=data.get('password', 'user123'),
+                username=data.get('username', email.split('@')[0]),
+                email=email,
+                password=password,
                 first_name=data.get('first_name', ''),
                 last_name=data.get('last_name', ''),
             )
@@ -149,8 +182,11 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
+        self.check_admin_permission(request)
         try:
             user = self.get_object()
+            if user.user_type == 'admin':
+                return Response({'error': 'Admin o\'chirib bo\'lmaydi'}, status=status.HTTP_400_BAD_REQUEST)
             user.delete()
             return Response({'message': 'Foydalanuvchi o\'chirildi!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
@@ -226,7 +262,8 @@ def change_password(request):
 
 # ==================== AIR QUALITY & HEALTH ALERTS ====================
 
-IQAIR_API_KEY = "895c0f03-bdea-469a-acec-f6bb76f98138"  # IQAir API key
+from django.conf import settings
+IQAIR_API_KEY = getattr(settings, 'IQAIR_API_KEY', '')
 
 # Kasalliklar va havo sifati ta'siri
 HEALTH_SENSITIVITY = {
@@ -333,7 +370,15 @@ def health_alerts(request):
         # Real API call (API key bo'lganda)
         if IQAIR_API_KEY and IQAIR_API_KEY != "your-iqair-api-key":
             try:
-                api_url = f"http://api.airvisual.com/v2/city?city={city}&state={city}&country={country}&key={IQAIR_API_KEY}"
+                from urllib.parse import urlencode, quote
+                # URL injection dan himoya - parametrlarni xavfsiz encode qilish
+                params = urlencode({
+                    'city': city,
+                    'state': city,
+                    'country': country,
+                    'key': IQAIR_API_KEY
+                })
+                api_url = f"http://api.airvisual.com/v2/city?{params}"
                 response = requests.get(api_url, timeout=10)
                 if response.status_code == 200:
                     data = response.json()
@@ -689,107 +734,101 @@ def admin_appointments(request):
         'count': appointments.count()
     })
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.utils import timezone
-from datetime import timedelta
-import random
-
-
 # ============ MEDICAL DOCUMENTS ============
+
+from medicines.models import MedicalDocument
+from .serializers import MedicalDocumentSerializer, MedicalDocumentCreateSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def medical_documents(request):
-    """Tibbiy hujjatlar ro'yxati"""
+    """Tibbiy hujjatlar ro'yxati va yaratish"""
 
     if request.method == 'GET':
-        documents = [
-            {
-                'id': 1,
-                'title': 'Qon tahlili natijasi',
-                'document_type': 'analysis',
-                'document_type_display': 'Tahlil natijasi',
-                'file_url': '/media/documents/blood_test.pdf',
-                'file_type': 'pdf',
-                'file_size': 245000,
-                'file_size_display': '245 KB',
-                'doctor_name': 'Dr. Akbar Karimov',
-                'hospital_name': 'Toshkent Tibbiyot Markazi',
-                'document_date': '2024-01-15',
-                'is_important': True,
-                'created_at': '2024-01-15T10:30:00Z',
-            },
-            {
-                'id': 2,
-                'title': 'EKG natijasi',
-                'document_type': 'analysis',
-                'document_type_display': 'Tahlil natijasi',
-                'file_url': '/media/documents/ekg.pdf',
-                'file_type': 'pdf',
-                'file_size': 180000,
-                'file_size_display': '180 KB',
-                'doctor_name': 'Dr. Malika Rahimova',
-                'hospital_name': 'Kardiologiya Markazi',
-                'document_date': '2024-01-10',
-                'is_important': True,
-                'created_at': '2024-01-10T14:00:00Z',
-            },
-            {
-                'id': 3,
-                'title': 'Retsept - Lisinopril',
-                'document_type': 'prescription',
-                'document_type_display': 'Retsept',
-                'file_url': '/media/documents/prescription.jpg',
-                'file_type': 'jpg',
-                'file_size': 120000,
-                'file_size_display': '120 KB',
-                'doctor_name': 'Dr. Akbar Karimov',
-                'hospital_name': 'Toshkent Tibbiyot Markazi',
-                'document_date': '2024-01-05',
-                'is_important': False,
-                'created_at': '2024-01-05T16:00:00Z',
-            },
-        ]
+        queryset = MedicalDocument.objects.filter(user=request.user)
 
+        # Tur bo'yicha filter
         doc_type = request.GET.get('type')
         if doc_type:
-            documents = [d for d in documents if d['document_type'] == doc_type]
+            queryset = queryset.filter(document_type=doc_type)
+
+        # Muhim hujjatlar
+        is_important = request.GET.get('important')
+        if is_important == 'true':
+            queryset = queryset.filter(is_important=True)
+
+        # Qidiruv
+        search = request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(doctor_name__icontains=search) |
+                Q(hospital_name__icontains=search)
+            )
+
+        serializer = MedicalDocumentSerializer(
+            queryset,
+            many=True,
+            context={'request': request}
+        )
 
         return Response({
-            'count': len(documents),
-            'documents': documents
+            'count': queryset.count(),
+            'documents': serializer.data
         })
 
     elif request.method == 'POST':
-        return Response({
-            'id': random.randint(100, 999),
-            'message': 'Hujjat yuklandi',
-            'title': request.data.get('title', 'Yangi hujjat'),
-        }, status=201)
+        serializer = MedicalDocumentCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            document = serializer.save()
+            return Response({
+                'id': str(document.id),
+                'message': 'Hujjat muvaffaqiyatli yuklandi',
+                'title': document.title,
+            }, status=201)
+        return Response(serializer.errors, status=400)
 
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def medical_document_detail(request, pk):
-    """Bitta hujjat"""
+    """Bitta hujjat - ko'rish, yangilash, o'chirish"""
+
+    try:
+        document = MedicalDocument.objects.get(pk=pk, user=request.user)
+    except MedicalDocument.DoesNotExist:
+        return Response({'error': 'Hujjat topilmadi'}, status=404)
 
     if request.method == 'GET':
-        document = {
-            'id': pk,
-            'title': 'Qon tahlili natijasi',
-            'document_type': 'analysis',
-            'file_url': '/media/documents/blood_test.pdf',
-            'description': "Umumiy qon tahlili. Barcha ko'rsatkichlar normal.",
-            'doctor_name': 'Dr. Akbar Karimov',
-            'hospital_name': 'Toshkent Tibbiyot Markazi',
-            'document_date': '2024-01-15',
-        }
-        return Response(document)
+        serializer = MedicalDocumentSerializer(document, context={'request': request})
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = MedicalDocumentCreateSerializer(
+            document,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'message': 'Hujjat yangilandi',
+                'id': str(document.id)
+            })
+        return Response(serializer.errors, status=400)
 
     elif request.method == 'DELETE':
-        return Response(status=204)
+        # Faylni ham o'chirish
+        if document.file:
+            document.file.delete(save=False)
+        document.delete()
+        return Response({'message': 'Hujjat o\'chirildi'}, status=204)
 
 
 # ============ HEALTH ANALYTICS ============

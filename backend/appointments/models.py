@@ -43,6 +43,20 @@ class Appointment(models.Model):
 
     class Meta:
         ordering = ['-date', '-time']
+        indexes = [
+            models.Index(fields=['date', 'doctor']),
+            models.Index(fields=['patient', 'status']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+        ]
+        # Ikki marta bir vaqtga yozilishni oldini olish
+        constraints = [
+            models.UniqueConstraint(
+                fields=['doctor', 'date', 'time'],
+                condition=models.Q(status__in=['pending', 'confirmed']),
+                name='unique_doctor_appointment_slot'
+            )
+        ]
 
     def __str__(self):
         patient_name = self.patient.get_full_name() if self.patient else 'Noma\'lum'

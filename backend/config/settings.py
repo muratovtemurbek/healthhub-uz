@@ -165,6 +165,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Rate limiting - API suiiste'molidan himoya
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+        'ai_service': '20/hour',  # AI service uchun qattiqroq limit
+    },
+    # Standart xatolik formati
+    'EXCEPTION_HANDLER': 'config.middleware.custom_exception_handler',
 }
 
 # Simple JWT
@@ -186,23 +198,29 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-]
-
-# Add production frontend URLs
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-if IS_PRODUCTION:
-    CORS_ALLOWED_ORIGINS += [
-        "https://*.railway.app",
-        "https://*.vercel.app",
-        "https://*.netlify.app",
+
+# Development rejimda CORS_ALLOW_ALL_ORIGINS ishlatiladi
+if not IS_PRODUCTION:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
     ]
+else:
+    # Production rejimda faqat aniq domainlar ruxsat etiladi
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = []
+
+    # Railway public domain
+    RAILWAY_PUBLIC_DOMAIN_CORS = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+    if RAILWAY_PUBLIC_DOMAIN_CORS:
+        CORS_ALLOWED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN_CORS}")
+
+    # Frontend URL
     if FRONTEND_URL and FRONTEND_URL.startswith('https'):
         CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
 
@@ -215,24 +233,43 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 if IS_PRODUCTION:
-    CSRF_TRUSTED_ORIGINS += [
-        "https://*.railway.app",
-        "https://*.up.railway.app",
-        "https://*.vercel.app",
-        "https://healthhub-uz-production.up.railway.app",
-    ]
+    # Production rejimda faqat aniq domainlar
+    CSRF_TRUSTED_ORIGINS = []
+
+    # Railway public domain
+    RAILWAY_PUBLIC_DOMAIN_CSRF = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+    if RAILWAY_PUBLIC_DOMAIN_CSRF:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN_CSRF}")
+
+    # Frontend URL
     if FRONTEND_URL and FRONTEND_URL.startswith('https'):
         CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
-    # Railway public domain
-    RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
-    if RAILWAY_PUBLIC_DOMAIN:
-        CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
 
 # Channels (WebSocket)
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer'
     }
+}
+
+# Caching
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'healthhub-cache',
+        'TIMEOUT': 300,  # 5 daqiqa default
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
+
+# Cache timeouts (sekundlarda)
+CACHE_TIMEOUTS = {
+    'doctors_list': 60 * 5,      # 5 daqiqa
+    'specializations': 60 * 30,  # 30 daqiqa
+    'hospitals': 60 * 30,        # 30 daqiqa
+    'medicines': 60 * 15,        # 15 daqiqa
 }
 
 # DRF Spectacular (API Documentation)
@@ -285,6 +322,16 @@ LOGGING = {
         },
     },
 }
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Tashkent'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 daqiqa
 
 # Security Settings (for production)
 if IS_PRODUCTION:

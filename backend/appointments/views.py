@@ -238,6 +238,7 @@ def my_medical_history(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def patient_medical_history(request, patient_id):
+    """Bemor tibbiy tarixini ko'rish - faqat shifokor yoki o'zi ko'ra oladi"""
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
@@ -245,6 +246,26 @@ def patient_medical_history(request, patient_id):
         patient = User.objects.get(pk=patient_id)
     except User.DoesNotExist:
         return Response({'error': 'Bemor topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    # XAVFSIZLIK: Faqat shifokor yoki bemor o'zi ko'ra oladi
+    is_own_data = str(request.user.id) == str(patient_id)
+    is_doctor = hasattr(request.user, 'user_type') and request.user.user_type == 'doctor'
+    is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+
+    # Shifokor faqat o'z bemorlarini ko'ra oladi
+    if is_doctor and not is_own_data:
+        from doctors.models import Doctor
+        try:
+            doctor = Doctor.objects.get(user=request.user)
+            has_appointment = Appointment.objects.filter(doctor=doctor, patient=patient).exists()
+            if not has_appointment:
+                return Response({'error': 'Bu bemorning ma\'lumotlarini ko\'rishga ruxsat yo\'q'}, status=status.HTTP_403_FORBIDDEN)
+        except Doctor.DoesNotExist:
+            return Response({'error': 'Shifokor topilmadi'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Oddiy foydalanuvchi faqat o'z ma'lumotlarini ko'ra oladi
+    if not is_own_data and not is_doctor and not is_admin:
+        return Response({'error': 'Bu bemorning ma\'lumotlarini ko\'rishga ruxsat yo\'q'}, status=status.HTTP_403_FORBIDDEN)
 
     data = {
         'patient': {

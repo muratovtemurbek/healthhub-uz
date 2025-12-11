@@ -26,12 +26,18 @@ class UserSerializer(serializers.ModelSerializer):
         return f"{obj.first_name} {obj.last_name}".strip() or obj.email
 
     def get_bmi(self, obj):
-        """BMI hisoblash"""
-        if obj.height and obj.weight and obj.height > 0:
-            height_m = obj.height / 100  # sm dan m ga
-            bmi = obj.weight / (height_m ** 2)
-            return round(bmi, 1)
-        return None
+        """BMI hisoblash - validation bilan"""
+        # Height va weight validatsiyasi
+        if not obj.height or not obj.weight:
+            return None
+        if obj.height < 50 or obj.height > 250:  # 50-250 sm oralig'ida
+            return None
+        if obj.weight < 20 or obj.weight > 300:  # 20-300 kg oralig'ida
+            return None
+
+        height_m = obj.height / 100  # sm dan m ga
+        bmi = obj.weight / (height_m ** 2)
+        return round(bmi, 1)
 
     def get_bmi_status(self, obj):
         """BMI holati"""
@@ -188,11 +194,17 @@ class MedicalCardSerializer(serializers.ModelSerializer):
         ]
 
     def get_bmi(self, obj):
-        if obj.height and obj.weight and obj.height > 0:
-            height_m = obj.height / 100
-            bmi = obj.weight / (height_m ** 2)
-            return round(bmi, 1)
-        return None
+        """BMI hisoblash - validation bilan"""
+        if not obj.height or not obj.weight:
+            return None
+        if obj.height < 50 or obj.height > 250:
+            return None
+        if obj.weight < 20 or obj.weight > 300:
+            return None
+
+        height_m = obj.height / 100
+        bmi = obj.weight / (height_m ** 2)
+        return round(bmi, 1)
 
     def get_bmi_status(self, obj):
         bmi = self.get_bmi(obj)
@@ -295,3 +307,74 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+
+
+class MedicalDocumentSerializer(serializers.ModelSerializer):
+    """Tibbiy hujjatlar serializeri"""
+    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+    file_url = serializers.SerializerMethodField()
+    file_size_display = serializers.SerializerMethodField()
+
+    class Meta:
+        from medicines.models import MedicalDocument
+        model = MedicalDocument
+        fields = [
+            'id', 'title', 'document_type', 'document_type_display',
+            'file', 'file_url', 'file_type', 'file_size', 'file_size_display',
+            'description', 'doctor_name', 'hospital_name',
+            'document_date', 'is_important', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'file_size', 'file_type']
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
+    def get_file_size_display(self, obj):
+        """Fayl hajmini o'qiladigan formatda"""
+        size = obj.file_size or 0
+        if size < 1024:
+            return f"{size} B"
+        elif size < 1024 * 1024:
+            return f"{size // 1024} KB"
+        else:
+            return f"{size // (1024 * 1024)} MB"
+
+
+class MedicalDocumentCreateSerializer(serializers.ModelSerializer):
+    """Tibbiy hujjat yaratish serializeri"""
+
+    class Meta:
+        from medicines.models import MedicalDocument
+        model = MedicalDocument
+        fields = [
+            'title', 'document_type', 'file', 'description',
+            'doctor_name', 'hospital_name', 'document_date', 'is_important'
+        ]
+
+    def validate_file(self, value):
+        """Fayl validatsiyasi"""
+        # Fayl hajmi 10 MB dan oshmasligi kerak
+        max_size = 10 * 1024 * 1024  # 10 MB
+        if value.size > max_size:
+            raise serializers.ValidationError("Fayl hajmi 10 MB dan oshmasligi kerak")
+
+        # Ruxsat etilgan formatlar
+        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']
+        ext = '.' + value.name.split('.')[-1].lower() if '.' in value.name else ''
+        if ext not in allowed_extensions:
+            raise serializers.ValidationError(
+                f"Faqat quyidagi formatlar ruxsat etilgan: {', '.join(allowed_extensions)}"
+            )
+
+        return value
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)

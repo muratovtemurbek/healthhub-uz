@@ -33,11 +33,41 @@ class AppointmentCreateSerializer(serializers.ModelSerializer):
         model = Appointment
         fields = ['doctor', 'date', 'time', 'reason', 'symptoms']
 
+    def validate(self, data):
+        """Race condition dan himoya - ikki marta bir vaqtga yozilishni oldini olish"""
+        from django.db import transaction
+
+        doctor = data.get('doctor')
+        date = data.get('date')
+        time = data.get('time')
+
+        # Atomic transaction ichida tekshirish
+        with transaction.atomic():
+            # select_for_update bilan lock qilish
+            existing = Appointment.objects.select_for_update().filter(
+                doctor=doctor,
+                date=date,
+                time=time,
+                status__in=['pending', 'confirmed']
+            ).exists()
+
+            if existing:
+                raise serializers.ValidationError({
+                    'time': 'Bu vaqt allaqachon band qilingan. Boshqa vaqtni tanlang.'
+                })
+
+        return data
+
     def create(self, validated_data):
+        from django.db import transaction
+
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             validated_data['patient'] = request.user
-        return super().create(validated_data)
+
+        # Atomic transaction bilan yaratish
+        with transaction.atomic():
+            return super().create(validated_data)
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):

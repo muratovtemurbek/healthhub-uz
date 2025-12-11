@@ -346,9 +346,16 @@ def analyze_symptoms_local(symptoms: list, age: int = None, gender: str = None, 
 
 
 # ==================== AI CONSULTATION VIEWSET ====================
+from .throttling import AIServiceThrottle, AIServiceAnonThrottle, SymptomCheckThrottle
+
+
 class AIConsultationViewSet(viewsets.ViewSet):
     """AI Shifokor - Alomatlarni tahlil qilish"""
+    # Note: AllowAny saqlanadi chunki ro'yxatdan o'tmagan foydalanuvchilar ham foydalanishi mumkin
+    # Lekin bazaga saqlash faqat autentifikatsiya qilingan foydalanuvchilar uchun
     permission_classes = [AllowAny]
+    # Spam himoyasi - rate limiting
+    throttle_classes = [AIServiceThrottle, AIServiceAnonThrottle]
 
     def list(self, request):
         return Response({

@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Count, Avg, Sum, Q
 from django.utils import timezone
+from django.core.cache import cache
+from django.conf import settings
 from datetime import timedelta, datetime
 from .models import Doctor, DoctorReview, Specialization, Hospital
 from .serializers import (
@@ -13,14 +15,36 @@ from .serializers import (
 )
 from appointments.models import Appointment, MedicalRecord, Prescription
 
+# Cache timeout sozlamalari
+CACHE_TIMEOUTS = getattr(settings, 'CACHE_TIMEOUTS', {
+    'doctors_list': 300,
+    'specializations': 1800,
+})
+
 
 # ============== PUBLIC ENDPOINTS ==============
 
 class SpecializationViewSet(viewsets.ReadOnlyModelViewSet):
-    """Mutaxassisliklar ro'yxati"""
+    """Mutaxassisliklar ro'yxati - cached"""
     queryset = Specialization.objects.all()
     serializer_class = SpecializationSerializer
     permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        """Cacheden olish yoki bazadan yuklash"""
+        cache_key = 'specializations_list'
+        cached_data = cache.get(cache_key)
+
+        if cached_data is not None:
+            return Response(cached_data)
+
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+
+        # Cache ga saqlash
+        cache.set(cache_key, data, CACHE_TIMEOUTS.get('specializations', 1800))
+        return Response(data)
 
 
 class PublicDoctorViewSet(viewsets.ReadOnlyModelViewSet):

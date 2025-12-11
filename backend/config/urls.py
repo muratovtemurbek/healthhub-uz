@@ -2,10 +2,29 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse, FileResponse, JsonResponse
 from django.views.static import serve
+from django.db import connection
 import os
 import mimetypes
+
+
+def health_check(request):
+    """Health check endpoint for load balancers and container orchestrators"""
+    try:
+        # Database connection check
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+
+        return JsonResponse({
+            'status': 'healthy',
+            'database': 'connected'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'unhealthy',
+            'error': str(e)
+        }, status=503)
 
 # Frontend fayllarini serve qilish
 def serve_frontend_file(request, path=''):
@@ -29,6 +48,9 @@ def serve_frontend_file(request, path=''):
     return HttpResponse('Frontend not found', status=404)
 
 urlpatterns = [
+    # Health check - load balancer va container orchestrator uchun
+    path('health/', health_check, name='health_check'),
+
     path('admin/', admin.site.urls),
 
     # /api/ bilan (v1 olib tashlandi)

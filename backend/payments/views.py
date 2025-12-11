@@ -260,47 +260,52 @@ def payme_create(params, request_id):
 
 def payme_perform(params, request_id):
     """PerformTransaction - to'lovni tasdiqlash"""
+    from django.db import transaction as db_transaction
+
     payme_id = params.get('id')
 
     try:
-        transaction = PaymeTransaction.objects.get(payme_id=payme_id)
+        payme_trans = PaymeTransaction.objects.get(payme_id=payme_id)
 
-        if transaction.state == 2:
+        if payme_trans.state == 2:
             return Response({
                 'result': {
-                    'transaction': str(transaction.id),
-                    'perform_time': transaction.perform_time,
-                    'state': transaction.state
+                    'transaction': str(payme_trans.id),
+                    'perform_time': payme_trans.perform_time,
+                    'state': payme_trans.state
                 },
                 'id': request_id
             })
 
-        if transaction.state != 1:
+        if payme_trans.state != 1:
             return Response({
                 'error': {'code': -31008, 'message': 'Transaction cancelled'},
                 'id': request_id
             })
 
-        # TASDIQLASH
+        # TASDIQLASH - Atomic transaction bilan
         perform_time = int(time.time() * 1000)
-        transaction.state = 2
-        transaction.perform_time = perform_time
-        transaction.save()
 
-        # Payment yangilash
-        payment = transaction.payment
-        payment.status = 'completed'
-        payment.paid_at = timezone.now()
-        payment.save()
+        with db_transaction.atomic():
+            payme_trans.state = 2
+            payme_trans.perform_time = perform_time
+            payme_trans.save()
 
-        # Appointment yangilash (agar bor bo'lsa)
-        if payment.appointment:
-            payment.appointment.payment_status = 'paid'
-            payment.appointment.save()
+            # Payment yangilash
+            payment = payme_trans.payment
+            payment.status = 'completed'
+            payment.paid_at = timezone.now()
+            payment.save()
+
+            # Appointment yangilash (agar bor bo'lsa)
+            if payment.appointment:
+                payment.appointment.payment_status = 'paid'
+                payment.appointment.is_paid = True
+                payment.appointment.save()
 
         return Response({
             'result': {
-                'transaction': str(transaction.id),
+                'transaction': str(payme_trans.id),
                 'perform_time': perform_time,
                 'state': 2
             },
@@ -475,6 +480,8 @@ def click_prepare(request):
 @permission_classes([AllowAny])
 def click_complete(request):
     """Click Complete - to'lovni yakunlash"""
+    from django.db import transaction as db_transaction
+
     click_trans_id = request.data.get('click_trans_id')
     service_id = request.data.get('service_id')
     merchant_trans_id = request.data.get('merchant_trans_id')
@@ -506,25 +513,27 @@ def click_complete(request):
                 'error_note': 'Transaction failed'
             })
 
-        # TASDIQLASH
-        ClickTransaction.objects.create(
-            payment=payment,
-            click_trans_id=click_trans_id,
-            service_id=service_id,
-            merchant_trans_id=merchant_trans_id,
-            amount=amount,
-            action=action,
-            sign_time=sign_time
-        )
+        # TASDIQLASH - Atomic transaction bilan
+        with db_transaction.atomic():
+            ClickTransaction.objects.create(
+                payment=payment,
+                click_trans_id=click_trans_id,
+                service_id=service_id,
+                merchant_trans_id=merchant_trans_id,
+                amount=amount,
+                action=action,
+                sign_time=sign_time
+            )
 
-        payment.status = 'completed'
-        payment.paid_at = timezone.now()
-        payment.save()
+            payment.status = 'completed'
+            payment.paid_at = timezone.now()
+            payment.save()
 
-        # Appointment yangilash
-        if payment.appointment:
-            payment.appointment.payment_status = 'paid'
-            payment.appointment.save()
+            # Appointment yangilash
+            if payment.appointment:
+                payment.appointment.payment_status = 'paid'
+                payment.appointment.is_paid = True
+                payment.appointment.save()
 
         return Response({
             'error': 0,

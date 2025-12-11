@@ -53,6 +53,12 @@ class Payment(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Tolov'
         verbose_name_plural = 'Tolovlar'
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['provider', 'status']),
+        ]
 
     def __str__(self):
         return f"{self.user.email} - {self.amount} UZS - {self.status}"
