@@ -1,0 +1,41 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Qabul bekor qilindi - HealthHub UZ{% endblock %}
+
+{% block content %}
+<p class="greeting">Assalomu alaykum, {{ patient_name }}!</p>
+
+<p>Afsuski, sizning quyidagi qabulingiz bekor qilindi:</p>
+
+<div class="info-box">
+    <h3>Bekor qilingan qabul</h3>
+    <div class="info-row">
+        <span class="info-label">Shifokor:</span>
+        <span class="info-value">{{ doctor_name }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Sana:</span>
+        <span class="info-value">{{ date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Vaqt:</span>
+        <span class="info-value">{{ time }}</span>
+    </div>
+</div>
+
+{% if reason %}
+<div class="warning">
+    <strong>Bekor qilish sababi:</strong> {{ reason }}
+</div>
+{% endif %}
+
+<p>Agar sizga qabul kerak bo'lsa, iltimos, yangi qabul yarating.</p>
+
+<p style="text-align: center;">
+    <a href="{{ frontend_url }}/doctors" class="button">
+        Yangi qabul yaratish
+    </a>
+</p>
+
+<p>Sog'lom bo'ling!</p>
+{% endblock %}

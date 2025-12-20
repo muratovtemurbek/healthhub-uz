@@ -1,0 +1,42 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Qabul eslatmasi - HealthHub UZ{% endblock %}
+
+{% block content %}
+<p class="greeting">Assalomu alaykum, {{ patient_name }}!</p>
+
+<p>Sizning shifokorga qabulingiz yaqinlashib qoldi. Iltimos, vaqtida kelishni unutmang.</p>
+
+<div class="info-box">
+    <h3>Qabul ma'lumotlari</h3>
+    <div class="info-row">
+        <span class="info-label">Shifokor:</span>
+        <span class="info-value">{{ doctor_name }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Sana:</span>
+        <span class="info-value">{{ date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Vaqt:</span>
+        <span class="info-value">{{ time }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Sabab:</span>
+        <span class="info-value">{{ reason }}</span>
+    </div>
+</div>
+
+<div class="warning">
+    <strong>Eslatma:</strong> Iltimos, qabulga 10-15 daqiqa oldin keling.
+    Agar qabulni bekor qilmoqchi bo'lsangiz, kamida 2 soat oldin xabar bering.
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ frontend_url }}/appointments/{{ appointment_id }}" class="button">
+        Qabulni ko'rish
+    </a>
+</p>
+
+<p>Sog'lom bo'ling!</p>
+{% endblock %}

@@ -1,0 +1,16 @@
+Assalomu alaykum, {{ patient_name }}!
+
+Sizning shifokorga qabulingiz yaqinlashib qoldi.
+
+QABUL MA'LUMOTLARI:
+- Shifokor: {{ doctor_name }}
+- Sana: {{ date }}
+- Vaqt: {{ time }}
+- Sabab: {{ reason }}
+
+Eslatma: Iltimos, qabulga 10-15 daqiqa oldin keling.
+
+Qabulni ko'rish: {{ frontend_url }}/appointments/{{ appointment_id }}
+
+Sog'lom bo'ling!
+HealthHub UZ

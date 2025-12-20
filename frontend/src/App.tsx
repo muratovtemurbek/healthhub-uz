@@ -40,6 +40,12 @@ import HealthAnalytics from './pages/HealthAnalytics';
 import Hospitals from './pages/Hospitals';
 import MedicalDocuments from './pages/MedicalDocuments';
 import VideoCall from './pages/VideoCall';
+import NotificationSettings from './pages/NotificationSettings';
+import PDFReports from './pages/PDFReports';
+import VaccinationCalendar from './pages/VaccinationCalendar';
+import LabResults from './pages/LabResults';
+import HealthGoals from './pages/HealthGoals';
+import VitalSigns from './pages/VitalSigns';
 
 // Doctor Pages
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
@@ -138,6 +144,12 @@ export default function App() {
         <Route path="/analytics" element={<PrivateRoute allowedRoles={['patient']}><HealthAnalytics /></PrivateRoute>} />
         <Route path="/hospitals" element={<PrivateRoute allowedRoles={['patient']}><Hospitals /></PrivateRoute>} />
         <Route path="/documents" element={<PrivateRoute allowedRoles={['patient']}><MedicalDocuments /></PrivateRoute>} />
+        <Route path="/notification-settings" element={<PrivateRoute allowedRoles={['patient']}><NotificationSettings /></PrivateRoute>} />
+        <Route path="/reports" element={<PrivateRoute allowedRoles={['patient']}><PDFReports /></PrivateRoute>} />
+        <Route path="/vaccinations" element={<PrivateRoute allowedRoles={['patient']}><VaccinationCalendar /></PrivateRoute>} />
+        <Route path="/lab-results" element={<PrivateRoute allowedRoles={['patient']}><LabResults /></PrivateRoute>} />
+        <Route path="/health-goals" element={<PrivateRoute allowedRoles={['patient']}><HealthGoals /></PrivateRoute>} />
+        <Route path="/vital-signs" element={<PrivateRoute allowedRoles={['patient']}><VitalSigns /></PrivateRoute>} />
 
         {/* Doctor Routes */}
         <Route path="/doctor" element={<PrivateRoute allowedRoles={['doctor']}><DoctorLayout /></PrivateRoute>}>

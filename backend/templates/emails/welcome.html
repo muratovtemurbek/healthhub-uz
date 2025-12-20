@@ -1,0 +1,34 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Xush kelibsiz - HealthHub UZ{% endblock %}
+
+{% block content %}
+<p class="greeting">Assalomu alaykum, {{ user_name }}!</p>
+
+<div class="success">
+    <strong>Tabriklaymiz!</strong> Siz HealthHub UZ platformasiga muvaffaqiyatli ro'yxatdan o'tdingiz.
+</div>
+
+<p>HealthHub UZ - bu sizning sog'lig'ingiz uchun zamonaviy platforma. Bizning xizmatlarimiz:</p>
+
+<div class="info-box">
+    <h3>Platformada nima qilishingiz mumkin</h3>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>Malakali shifokorlarga online qabul olish</li>
+        <li>Video konsultatsiya o'tkazish</li>
+        <li>AI yordamida sog'liqni tekshirish</li>
+        <li>Dorilar haqida ma'lumot olish</li>
+        <li>Tibbiy tarixingizni saqlash</li>
+    </ul>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ frontend_url }}/dashboard" class="button">
+        Platformaga kirish
+    </a>
+</p>
+
+<p>Savollaringiz bo'lsa, biz bilan bog'laning.</p>
+
+<p>Sog'lom bo'ling!</p>
+{% endblock %}

@@ -1,0 +1,17 @@
+Assalomu alaykum, {{ patient_name }}!
+
+Afsuski, sizning quyidagi qabulingiz bekor qilindi:
+
+BEKOR QILINGAN QABUL:
+- Shifokor: {{ doctor_name }}
+- Sana: {{ date }}
+- Vaqt: {{ time }}
+
+{% if reason %}Bekor qilish sababi: {{ reason }}{% endif %}
+
+Agar sizga qabul kerak bo'lsa, iltimos, yangi qabul yarating.
+
+Yangi qabul yaratish: {{ frontend_url }}/doctors
+
+Sog'lom bo'ling!
+HealthHub UZ

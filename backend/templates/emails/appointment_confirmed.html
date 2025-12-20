@@ -1,0 +1,52 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Qabul tasdiqlandi - HealthHub UZ{% endblock %}
+
+{% block content %}
+<p class="greeting">Assalomu alaykum, {{ patient_name }}!</p>
+
+<div class="success">
+    <strong>Ajoyib yangilik!</strong> Sizning shifokorga qabulingiz muvaffaqiyatli tasdiqlandi.
+</div>
+
+<div class="info-box">
+    <h3>Qabul ma'lumotlari</h3>
+    <div class="info-row">
+        <span class="info-label">Shifokor:</span>
+        <span class="info-value">{{ doctor_name }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Sana:</span>
+        <span class="info-value">{{ date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Vaqt:</span>
+        <span class="info-value">{{ time }}</span>
+    </div>
+    {% if hospital_name %}
+    <div class="info-row">
+        <span class="info-label">Shifoxona:</span>
+        <span class="info-value">{{ hospital_name }}</span>
+    </div>
+    {% endif %}
+    {% if hospital_address %}
+    <div class="info-row">
+        <span class="info-label">Manzil:</span>
+        <span class="info-value">{{ hospital_address }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<div class="warning">
+    <strong>Eslatma:</strong> Iltimos, qabulga 10-15 daqiqa oldin keling.
+    Pasport yoki ID kartangizni olib kelishni unutmang.
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ frontend_url }}/appointments" class="button">
+        Qabullarimni ko'rish
+    </a>
+</p>
+
+<p>Sog'lom bo'ling!</p>
+{% endblock %}

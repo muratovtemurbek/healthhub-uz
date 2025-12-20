@@ -1,0 +1,19 @@
+Assalomu alaykum, {{ user_name }}!
+
+Tabriklaymiz! Siz HealthHub UZ platformasiga muvaffaqiyatli ro'yxatdan o'tdingiz.
+
+HealthHub UZ - bu sizning sog'lig'ingiz uchun zamonaviy platforma.
+
+PLATFORMADA NIMA QILISHINGIZ MUMKIN:
+- Malakali shifokorlarga online qabul olish
+- Video konsultatsiya o'tkazish
+- AI yordamida sog'liqni tekshirish
+- Dorilar haqida ma'lumot olish
+- Tibbiy tarixingizni saqlash
+
+Platformaga kirish: {{ frontend_url }}/dashboard
+
+Savollaringiz bo'lsa, biz bilan bog'laning.
+
+Sog'lom bo'ling!
+HealthHub UZ

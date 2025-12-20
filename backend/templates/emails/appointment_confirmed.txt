@@ -1,0 +1,18 @@
+Assalomu alaykum, {{ patient_name }}!
+
+Ajoyib yangilik! Sizning shifokorga qabulingiz muvaffaqiyatli tasdiqlandi.
+
+QABUL MA'LUMOTLARI:
+- Shifokor: {{ doctor_name }}
+- Sana: {{ date }}
+- Vaqt: {{ time }}
+{% if hospital_name %}- Shifoxona: {{ hospital_name }}{% endif %}
+{% if hospital_address %}- Manzil: {{ hospital_address }}{% endif %}
+
+Eslatma: Iltimos, qabulga 10-15 daqiqa oldin keling.
+Pasport yoki ID kartangizni olib kelishni unutmang.
+
+Qabullarimni ko'rish: {{ frontend_url }}/appointments
+
+Sog'lom bo'ling!
+HealthHub UZ
