@@ -1,4 +1,5 @@
 import json
+import time
 import google.generativeai as genai
 from django.conf import settings
 from doctors.models import Doctor
@@ -6,19 +7,68 @@ from medicines.models import Medicine
 from appointments.models import Appointment
 
 # Gemini konfiguratsiya
-genai.configure(api_key=settings.GEMINI_API_KEY)
+try:
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    GEMINI_CONFIGURED = True
+except Exception:
+    GEMINI_CONFIGURED = False
 
 
 class HealthAgent:
-    """AI Agent - Google Gemini bilan"""
+    """AI Agent - Google Gemini bilan (retry logic bilan)"""
+
+    # Modellar ro'yxati - fallback uchun
+    MODELS = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-2.0-flash']
 
     def __init__(self, user=None):
         self.user = user
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.current_model_index = 0
+        self.model = self._get_model()
         self.context = {
             'user_symptoms': '',
             'recommended_specialization': None,
         }
+
+    def _get_model(self):
+        """Joriy modelni olish"""
+        model_name = self.MODELS[self.current_model_index]
+        return genai.GenerativeModel(model_name)
+
+    def _try_next_model(self):
+        """Keyingi modelga o'tish"""
+        if self.current_model_index < len(self.MODELS) - 1:
+            self.current_model_index += 1
+            self.model = self._get_model()
+            return True
+        return False
+
+    def _generate_with_retry(self, prompt: str, max_retries: int = 2) -> str:
+        """Retry logic bilan content generatsiya"""
+        last_error = None
+
+        for _ in range(len(self.MODELS)):
+            for attempt in range(max_retries):
+                try:
+                    response = self.model.generate_content(prompt)
+                    return response.text
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e).lower()
+
+                    # Quota xatosi
+                    if '429' in str(e) or 'quota' in error_str or 'rate' in error_str:
+                        print(f"Gemini quota error: {e}")
+                        time.sleep(1)
+                        break  # Boshqa modelga o'tish
+
+                    print(f"Gemini error (attempt {attempt + 1}): {e}")
+                    time.sleep(0.5)
+
+            # Keyingi modelga o'tish
+            if not self._try_next_model():
+                break
+
+        raise last_error or Exception("Gemini API bilan bog'lanib bo'lmadi")
 
     def _clean_json(self, text: str) -> str:
         """JSON ni tozalash"""
@@ -52,8 +102,8 @@ urgency: "oddiy", "tez", "shoshilinch" dan biri
 recommended_specialization: Terapevt, Kardiolog, Nevrolog, Pediatr, Ginekolog, Dermatolog, Oftalmolog, LOR, Travmatolog, Psixolog dan biri"""
 
         try:
-            response = self.model.generate_content(prompt)
-            text = self._clean_json(response.text)
+            response_text = self._generate_with_retry(prompt)
+            text = self._clean_json(response_text)
             result = json.loads(text)
             self.context['user_symptoms'] = symptoms
             self.context['recommended_specialization'] = result.get('recommended_specialization')
@@ -137,8 +187,8 @@ action.type qiymatlari:
 - "none" - hech narsa qilmaslik"""
 
         try:
-            response = self.model.generate_content(prompt)
-            text = self._clean_json(response.text)
+            response_text = self._generate_with_retry(prompt)
+            text = self._clean_json(response_text)
 
             try:
                 result = json.loads(text)

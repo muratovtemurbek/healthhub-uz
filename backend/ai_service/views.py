@@ -422,9 +422,15 @@ class AIConsultationViewSet(viewsets.ViewSet):
             return Response({'success': False, 'error': str(e)}, status=500)
 
     def _analyze_with_gemini(self, symptoms: str, api_key: str) -> dict:
-        """Gemini API bilan tahlil - aniq kasallik tahlili"""
+        """Gemini API bilan tahlil - retry logic bilan"""
+        import time
+        import json
+        import re
+
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+
+        # Modellar ro'yxati - avval tezkor, keyin experimental
+        models_to_try = ['gemini-1.5-flash', 'gemini-2.0-flash-exp']
 
         prompt = f"""Sen tajribali O'zbek shifokorisisan. Bemorning alomatlarini tahlil qil va aniq javob ber.
 
@@ -464,38 +470,55 @@ Javobni O'ZBEK TILIDA ber. Kasallik nomlarini O'zbek va Lotin tillarida ber (mas
 Har bir kasallik uchun ehtimollik foizini ber (0-100).
 Jiddiy holatlarni aniq belgilab ber."""
 
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        last_error = None
 
-        import json
-        import re
+        for model_name in models_to_try:
+            for attempt in range(2):  # 2 marta urinish
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    text = response.text.strip()
 
-        # JSON ni ajratib olish
-        if '```' in text:
-            # ```json ... ``` formatidan olish
-            match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
-            if match:
-                text = match.group(1).strip()
+                    # JSON ni ajratib olish
+                    if '```' in text:
+                        match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
+                        if match:
+                            text = match.group(1).strip()
 
-        # Agar hali ham JSON boshlanmasa
-        if not text.startswith('{'):
-            # Birinchi { dan oxirgi } gacha olish
-            start = text.find('{')
-            end = text.rfind('}')
-            if start != -1 and end != -1:
-                text = text[start:end+1]
+                    if not text.startswith('{'):
+                        start = text.find('{')
+                        end = text.rfind('}')
+                        if start != -1 and end != -1:
+                            text = text[start:end+1]
 
-        result = json.loads(text)
+                    result = json.loads(text)
 
-        # Default qiymatlar
-        if 'possible_conditions' not in result:
-            result['possible_conditions'] = []
-        if 'severity' not in result:
-            result['severity'] = "o'rta"
-        if 'specialization_key' not in result:
-            result['specialization_key'] = 'terapevt'
+                    # Default qiymatlar
+                    if 'possible_conditions' not in result:
+                        result['possible_conditions'] = []
+                    if 'severity' not in result:
+                        result['severity'] = "o'rta"
+                    if 'specialization_key' not in result:
+                        result['specialization_key'] = 'terapevt'
 
-        return result
+                    return result
+
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e).lower()
+
+                    # Quota xatosi - boshqa modelga o'tish
+                    if '429' in str(e) or 'quota' in error_str or 'rate' in error_str:
+                        print(f"Gemini quota error ({model_name}): {e}")
+                        time.sleep(1)  # 1 soniya kutish
+                        break  # Boshqa modelga o'tish
+
+                    # Boshqa xato - qayta urinish
+                    print(f"Gemini error ({model_name}, attempt {attempt + 1}): {e}")
+                    time.sleep(0.5)
+
+        # Barcha urinishlar muvaffaqiyatsiz - xato qaytarish
+        raise last_error or Exception("Gemini API bilan bog'lanib bo'lmadi")
 
     def _local_analysis(self, symptoms: str) -> dict:
         """Lokal tahlil - yaxshilangan"""
