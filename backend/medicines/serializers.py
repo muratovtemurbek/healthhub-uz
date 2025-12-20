@@ -96,3 +96,48 @@ class MedicineCompareSerializer(serializers.ModelSerializer):
                 'savings': float(obj.price) - float(cheapest.price)
             }
         return None
+
+# ============== PRESCRIPTION ORDER SERIALIZERS ==============
+
+class PrescriptionOrderSerializer(serializers.ModelSerializer):
+    """Retsept buyurtmasi serializeri"""
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    delivery_type_display = serializers.CharField(source='get_delivery_type_display', read_only=True)
+    pharmacy_name = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import PrescriptionOrder
+        model = PrescriptionOrder
+        fields = [
+            'id', 'user_name', 'prescription', 'pharmacy', 'pharmacy_name',
+            'items', 'total_amount', 'delivery_type', 'delivery_type_display',
+            'delivery_address', 'delivery_phone', 'status', 'status_display',
+            'is_paid', 'payment_method', 'notes', 'estimated_ready_time',
+            'created_at', 'delivered_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'delivered_at']
+
+    def get_pharmacy_name(self, obj):
+        return obj.pharmacy.name if obj.pharmacy else None
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() or obj.user.email
+
+
+class PrescriptionOrderCreateSerializer(serializers.ModelSerializer):
+    """Retsept buyurtmasi yaratish"""
+
+    class Meta:
+        from .models import PrescriptionOrder
+        model = PrescriptionOrder
+        fields = [
+            'prescription', 'pharmacy', 'items', 'total_amount',
+            'delivery_type', 'delivery_address', 'delivery_phone', 'notes'
+        ]
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)

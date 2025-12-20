@@ -8,8 +8,9 @@ app_name = 'medicines'
 router = DefaultRouter()
 router.register(r'categories', views.CategoryViewSet, basename='category')
 router.register(r'pharmacies', views.PharmacyViewSet, basename='pharmacy')
-router.register(r'medicines', views.MedicineViewSet, basename='medicine')  # items -> medicines
+router.register(r'medicines', views.MedicineViewSet, basename='medicine')
 router.register(r'prices', views.PharmacyPriceViewSet, basename='price')
+router.register(r'prescription-orders', views.PrescriptionOrderViewSet, basename='prescription-order')
 
 urlpatterns = [
     # ViewSet router

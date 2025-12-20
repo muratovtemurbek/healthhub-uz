@@ -809,3 +809,42 @@ def nearby_hospitals(request):
         'count': len(hospitals),
         'hospitals': hospitals
     })
+
+# ============== PRESCRIPTION ORDER VIEWS ==============
+
+class PrescriptionOrderViewSet(viewsets.ModelViewSet):
+    """Retsept buyurtmalari"""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import PrescriptionOrderSerializer, PrescriptionOrderCreateSerializer
+        if self.action == 'create':
+            return PrescriptionOrderCreateSerializer
+        return PrescriptionOrderSerializer
+
+    def get_queryset(self):
+        from .models import PrescriptionOrder
+        return PrescriptionOrder.objects.filter(user=self.request.user).order_by('-created_at')
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Buyurtmani bekor qilish"""
+        order = self.get_object()
+        if order.status in ['delivered', 'cancelled']:
+            return Response({'error': 'Bu buyurtmani bekor qilib bo\'lmaydi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.status = 'cancelled'
+        order.save()
+        from .serializers import PrescriptionOrderSerializer
+        return Response(PrescriptionOrderSerializer(order).data)
+
+    @action(detail=True, methods=['post'])
+    def confirm_payment(self, request, pk=None):
+        """To'lovni tasdiqlash"""
+        order = self.get_object()
+        order.is_paid = True
+        order.payment_method = request.data.get('payment_method', 'cash')
+        order.status = 'confirmed'
+        order.save()
+        from .serializers import PrescriptionOrderSerializer
+        return Response(PrescriptionOrderSerializer(order).data)

@@ -7,13 +7,15 @@ from .views import (
     MedicalRecordViewSet, my_medical_records, create_medical_record,
     my_allergies, my_chronic_conditions,
     my_medical_history, patient_medical_history,
-    doctor_appointments, available_slots
+    doctor_appointments, available_slots,
+    LabTestViewSet, lab_test_types
 )
 
 router = DefaultRouter()
 router.register(r'appointments', AppointmentViewSet, basename='appointment')
 router.register(r'prescriptions', PrescriptionViewSet, basename='prescription')
 router.register(r'records', MedicalRecordViewSet, basename='medical-record')
+router.register(r'lab-tests', LabTestViewSet, basename='lab-test')
 
 urlpatterns = [
     # Doctor appointments
@@ -41,6 +43,9 @@ urlpatterns = [
     path('my-history/', my_medical_history, name='my-history'),
     path('patient/<uuid:patient_id>/history/', patient_medical_history, name='patient-history'),
 
-    # Router URLs (appointments, prescriptions, records CRUD)
+    # Lab Tests
+    path('lab-test-types/', lab_test_types, name='lab-test-types'),
+
+    # Router URLs (appointments, prescriptions, records, lab-tests CRUD)
     path('', include(router.urls)),
 ]

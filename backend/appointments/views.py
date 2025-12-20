@@ -333,3 +333,80 @@ def available_slots(request, doctor_id):
             })
 
     return Response(slots)
+
+# ============== LAB TEST VIEWS ==============
+
+class LabTestViewSet(viewsets.ModelViewSet):
+    """Laboratoriya tahlillari"""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import LabTestSerializer, LabTestCreateSerializer, LabTestResultUploadSerializer
+        if self.action == 'create':
+            return LabTestCreateSerializer
+        if self.action == 'upload_results':
+            return LabTestResultUploadSerializer
+        return LabTestSerializer
+
+    def get_queryset(self):
+        from .models import LabTest
+        queryset = LabTest.objects.filter(user=self.request.user)
+
+        # Filter by status
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        # Filter by test_type
+        test_type = self.request.query_params.get('test_type')
+        if test_type:
+            queryset = queryset.filter(test_type=test_type)
+
+        return queryset.order_by('-date', '-time')
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Tahlilni bekor qilish"""
+        lab_test = self.get_object()
+        if lab_test.status in ['completed', 'cancelled']:
+            return Response({'error': 'Bu tahlilni bekor qilib bo\'lmaydi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        lab_test.status = 'cancelled'
+        lab_test.save()
+        from .serializers import LabTestSerializer
+        return Response(LabTestSerializer(lab_test).data)
+
+    @action(detail=True, methods=['post'])
+    def upload_results(self, request, pk=None):
+        """Natijalarni yuklash (admin/shifokor uchun)"""
+        from django.utils import timezone
+        lab_test = self.get_object()
+        from .serializers import LabTestResultUploadSerializer, LabTestSerializer
+
+        serializer = LabTestResultUploadSerializer(lab_test, data=request.data, partial=True)
+        if serializer.is_valid():
+            lab_test = serializer.save()
+            lab_test.status = 'completed'
+            lab_test.completed_at = timezone.now()
+            lab_test.save()
+            return Response(LabTestSerializer(lab_test, context={'request': request}).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def confirm_payment(self, request, pk=None):
+        """To'lovni tasdiqlash"""
+        lab_test = self.get_object()
+        lab_test.is_paid = True
+        lab_test.status = 'confirmed'
+        lab_test.save()
+        from .serializers import LabTestSerializer
+        return Response(LabTestSerializer(lab_test).data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def lab_test_types(request):
+    """Tahlil turlarini olish"""
+    from .models import LabTest
+    types = [{'value': t[0], 'label': t[1]} for t in LabTest.TEST_TYPES]
+    return Response(types)

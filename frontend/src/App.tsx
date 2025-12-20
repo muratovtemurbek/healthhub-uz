@@ -46,6 +46,13 @@ import VaccinationCalendar from './pages/VaccinationCalendar';
 import LabResults from './pages/LabResults';
 import HealthGoals from './pages/HealthGoals';
 import VitalSigns from './pages/VitalSigns';
+import FamilyMembers from './pages/FamilyMembers';
+import EmergencySOS from './pages/EmergencySOS';
+import PrescriptionOrders from './pages/PrescriptionOrders';
+import LabTests from './pages/LabTests';
+
+// Components
+import SOSButton from './components/SOSButton';
 
 // Doctor Pages
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
@@ -101,9 +108,20 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function SOSButtonWrapper() {
+  const token = localStorage.getItem('access_token');
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isPatient = token && user && (user.role === 'patient' || user.user_type === 'patient' || (!user.role && !user.user_type));
+
+  if (!isPatient) return null;
+  return <SOSButton />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <SOSButtonWrapper />
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -150,6 +168,10 @@ export default function App() {
         <Route path="/lab-results" element={<PrivateRoute allowedRoles={['patient']}><LabResults /></PrivateRoute>} />
         <Route path="/health-goals" element={<PrivateRoute allowedRoles={['patient']}><HealthGoals /></PrivateRoute>} />
         <Route path="/vital-signs" element={<PrivateRoute allowedRoles={['patient']}><VitalSigns /></PrivateRoute>} />
+        <Route path="/family" element={<PrivateRoute allowedRoles={['patient']}><FamilyMembers /></PrivateRoute>} />
+        <Route path="/emergency-sos" element={<PrivateRoute allowedRoles={['patient']}><EmergencySOS /></PrivateRoute>} />
+        <Route path="/prescription-orders" element={<PrivateRoute allowedRoles={['patient']}><PrescriptionOrders /></PrivateRoute>} />
+        <Route path="/lab-tests" element={<PrivateRoute allowedRoles={['patient']}><LabTests /></PrivateRoute>} />
 
         {/* Doctor Routes */}
         <Route path="/doctor" element={<PrivateRoute allowedRoles={['doctor']}><DoctorLayout /></PrivateRoute>}>

@@ -310,3 +310,50 @@ class HospitalReview(models.Model):
         verbose_name = "Sharh"
         verbose_name_plural = "Sharhlar"
         unique_together = ['hospital', 'user']
+
+class PrescriptionOrder(models.Model):
+    """Retsept buyurtmalari"""
+    STATUS_CHOICES = [
+        ('pending', 'Kutilmoqda'),
+        ('confirmed', 'Tasdiqlandi'),
+        ('preparing', 'Tayyorlanmoqda'),
+        ('ready', 'Tayyor'),
+        ('delivered', 'Yetkazildi'),
+        ('cancelled', 'Bekor qilindi'),
+    ]
+    DELIVERY_CHOICES = [
+        ('pickup', 'Olib ketish'),
+        ('delivery', 'Yetkazish'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='prescription_orders')
+    prescription = models.ForeignKey(
+        'appointments.Prescription',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders'
+    )
+    pharmacy = models.ForeignKey(Pharmacy, on_delete=models.CASCADE, related_name='orders')
+    items = models.JSONField(default=list, verbose_name='Buyurtma tarkibi')
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Jami summa')
+    delivery_type = models.CharField(max_length=20, choices=DELIVERY_CHOICES, default='pickup')
+    delivery_address = models.TextField(blank=True, default='', verbose_name='Yetkazish manzili')
+    delivery_phone = models.CharField(max_length=20, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_paid = models.BooleanField(default=False)
+    payment_method = models.CharField(max_length=20, blank=True, default='')
+    notes = models.TextField(blank=True, default='', verbose_name='Izoh')
+    estimated_ready_time = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Retsept buyurtmasi'
+        verbose_name_plural = 'Retsept buyurtmalari'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Buyurtma #{str(self.id)[:8]} - {self.user.get_full_name()}"

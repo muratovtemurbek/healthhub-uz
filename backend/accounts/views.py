@@ -1064,3 +1064,154 @@ def dashboard_widgets(request):
             'unread_count': 3,
         }
     })
+
+# ============== FAMILY MEMBER VIEWS ==============
+
+class FamilyMemberViewSet(viewsets.ModelViewSet):
+    """Oila a'zolari CRUD"""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import FamilyMemberSerializer
+        return FamilyMemberSerializer
+
+    def get_queryset(self):
+        from .models import FamilyMember
+        return FamilyMember.objects.filter(user=self.request.user, is_active=True)
+
+
+# ============== EMERGENCY CONTACT VIEWS ==============
+
+class EmergencyContactViewSet(viewsets.ModelViewSet):
+    """Favqulodda kontaktlar CRUD"""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import EmergencyContactSerializer
+        return EmergencyContactSerializer
+
+    def get_queryset(self):
+        from .models import EmergencyContact
+        return EmergencyContact.objects.filter(user=self.request.user)
+
+
+# ============== EMERGENCY SOS VIEWS ==============
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trigger_sos(request):
+    """SOS yuborish"""
+    from .models import EmergencySOS, EmergencyContact
+    from .serializers import EmergencySOSTriggerSerializer, EmergencySOSSerializer
+
+    # Faol SOS bormi tekshirish
+    active_sos = EmergencySOS.objects.filter(user=request.user, status='active').first()
+    if active_sos:
+        return Response({
+            'error': 'Sizda faol SOS mavjud',
+            'sos': EmergencySOSSerializer(active_sos).data
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = EmergencySOSTriggerSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        sos = serializer.save()
+
+        # Kontaktlarni olish
+        contacts = EmergencyContact.objects.filter(user=request.user)
+        notified = []
+        for contact in contacts:
+            notified.append({
+                'name': contact.name,
+                'phone': contact.phone,
+                'notified_at': str(sos.triggered_at)
+            })
+
+        sos.notified_contacts = notified
+        sos.save()
+
+        return Response({
+            'message': 'SOS yuborildi!',
+            'sos': EmergencySOSSerializer(sos).data,
+            'notified_contacts': notified
+        }, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def active_sos(request):
+    """Faol SOS ni olish"""
+    from .models import EmergencySOS
+    from .serializers import EmergencySOSSerializer
+
+    sos = EmergencySOS.objects.filter(user=request.user, status='active').first()
+    if sos:
+        return Response(EmergencySOSSerializer(sos).data)
+    return Response({'message': 'Faol SOS yo\'q'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def resolve_sos(request, pk):
+    """SOS ni hal qilish"""
+    from .models import EmergencySOS
+    from .serializers import EmergencySOSSerializer
+    from django.utils import timezone
+
+    try:
+        sos = EmergencySOS.objects.get(pk=pk, user=request.user)
+    except EmergencySOS.DoesNotExist:
+        return Response({'error': 'SOS topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    if sos.status != 'active':
+        return Response({'error': 'Bu SOS allaqachon hal qilingan'}, status=status.HTTP_400_BAD_REQUEST)
+
+    sos.status = 'resolved'
+    sos.resolved_at = timezone.now()
+    sos.save()
+
+    return Response({
+        'message': 'SOS hal qilindi',
+        'sos': EmergencySOSSerializer(sos).data
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_sos(request, pk):
+    """SOS ni bekor qilish"""
+    from .models import EmergencySOS
+    from .serializers import EmergencySOSSerializer
+    from django.utils import timezone
+
+    try:
+        sos = EmergencySOS.objects.get(pk=pk, user=request.user)
+    except EmergencySOS.DoesNotExist:
+        return Response({'error': 'SOS topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    if sos.status != 'active':
+        return Response({'error': 'Bu SOS allaqachon hal qilingan'}, status=status.HTTP_400_BAD_REQUEST)
+
+    sos.status = 'cancelled'
+    sos.resolved_at = timezone.now()
+    sos.save()
+
+    return Response({
+        'message': 'SOS bekor qilindi',
+        'sos': EmergencySOSSerializer(sos).data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def sos_history(request):
+    """SOS tarixi"""
+    from .models import EmergencySOS
+    from .serializers import EmergencySOSSerializer
+
+    sos_list = EmergencySOS.objects.filter(user=request.user).order_by('-triggered_at')[:20]
+    return Response({
+        'count': sos_list.count(),
+        'results': EmergencySOSSerializer(sos_list, many=True).data
+    })

@@ -173,3 +173,73 @@ class PatientMedicalHistorySerializer(serializers.Serializer):
     chronic_conditions = ChronicConditionSerializer(many=True)
     recent_appointments = AppointmentSerializer(many=True)
     summary = serializers.DictField()
+
+# ============== LAB TEST SERIALIZERS ==============
+
+class LabTestSerializer(serializers.ModelSerializer):
+    """Laboratoriya tahlili serializeri"""
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    test_type_display = serializers.CharField(source='get_test_type_display', read_only=True)
+    hospital_name = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+    result_file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import LabTest
+        model = LabTest
+        fields = [
+            'id', 'user_name', 'hospital', 'hospital_name',
+            'test_type', 'test_type_display', 'test_name', 'description',
+            'date', 'time', 'price', 'status', 'status_display',
+            'results', 'result_file', 'result_file_url', 'result_summary',
+            'notes', 'doctor_notes', 'is_paid', 'is_urgent',
+            'created_at', 'completed_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'completed_at']
+
+    def get_hospital_name(self, obj):
+        return obj.hospital.name if obj.hospital else None
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() or obj.user.email
+
+    def get_result_file_url(self, obj):
+        if obj.result_file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.result_file.url)
+            return obj.result_file.url
+        return None
+
+
+class LabTestCreateSerializer(serializers.ModelSerializer):
+    """Laboratoriya tahlili yaratish"""
+
+    class Meta:
+        from .models import LabTest
+        model = LabTest
+        fields = [
+            'hospital', 'test_type', 'test_name', 'description',
+            'date', 'time', 'price', 'notes', 'is_urgent'
+        ]
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+
+
+class LabTestResultUploadSerializer(serializers.ModelSerializer):
+    """Tahlil natijasi yuklash"""
+
+    class Meta:
+        from .models import LabTest
+        model = LabTest
+        fields = ['results', 'result_file', 'result_summary', 'doctor_notes']
+
+
+class LabTestTypeSerializer(serializers.Serializer):
+    """Tahlil turlari"""
+    value = serializers.CharField()
+    label = serializers.CharField()

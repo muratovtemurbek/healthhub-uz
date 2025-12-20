@@ -378,3 +378,92 @@ class MedicalDocumentCreateSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data['user'] = request.user
         return super().create(validated_data)
+
+# ============== FAMILY MEMBER SERIALIZERS ==============
+
+class FamilyMemberSerializer(serializers.ModelSerializer):
+    """Oila a'zolari serializeri"""
+    relationship_display = serializers.CharField(source='get_relationship_display', read_only=True)
+    gender_display = serializers.CharField(source='get_gender_display', read_only=True)
+    age = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import FamilyMember
+        model = FamilyMember
+        fields = [
+            'id', 'name', 'relationship', 'relationship_display',
+            'birth_date', 'age', 'gender', 'gender_display',
+            'blood_type', 'allergies', 'chronic_conditions',
+            'notes', 'is_active', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def get_age(self, obj):
+        if obj.birth_date:
+            from datetime import date
+            today = date.today()
+            age = today.year - obj.birth_date.year - (
+                (today.month, today.day) < (obj.birth_date.month, obj.birth_date.day)
+            )
+            return age
+        return None
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+
+
+# ============== EMERGENCY CONTACT SERIALIZERS ==============
+
+class EmergencyContactSerializer(serializers.ModelSerializer):
+    """Favqulodda kontakt serializeri"""
+
+    class Meta:
+        from .models import EmergencyContact
+        model = EmergencyContact
+        fields = ['id', 'name', 'phone', 'relationship', 'is_primary', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+
+
+# ============== EMERGENCY SOS SERIALIZERS ==============
+
+class EmergencySOSSerializer(serializers.ModelSerializer):
+    """SOS serializeri"""
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import EmergencySOS
+        model = EmergencySOS
+        fields = [
+            'id', 'user_name', 'latitude', 'longitude', 'address',
+            'status', 'status_display', 'notes', 'notified_contacts',
+            'triggered_at', 'resolved_at'
+        ]
+        read_only_fields = ['id', 'triggered_at', 'resolved_at', 'notified_contacts']
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() or obj.user.email
+
+
+class EmergencySOSTriggerSerializer(serializers.ModelSerializer):
+    """SOS trigger serializeri"""
+
+    class Meta:
+        from .models import EmergencySOS
+        model = EmergencySOS
+        fields = ['latitude', 'longitude', 'address', 'notes']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)

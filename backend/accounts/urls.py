@@ -1,9 +1,14 @@
 # accounts/urls.py
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 
 app_name = 'accounts'
+
+router = DefaultRouter()
+router.register(r'family-members', views.FamilyMemberViewSet, basename='family-member')
+router.register(r'emergency-contacts', views.EmergencyContactViewSet, basename='emergency-contact')
 
 urlpatterns = [
     # Auth (Class-based views)
@@ -50,4 +55,15 @@ urlpatterns = [
     # Users ViewSet (admin uchun)
     path('users/', views.UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='users-list'),
     path('users/<uuid:pk>/', views.UserViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'}), name='users-detail'),
+
+    # ============== YANGI: Family Members, Emergency ==============
+    # Family Members & Emergency Contacts (Router)
+    path('', include(router.urls)),
+
+    # Emergency SOS
+    path('sos/trigger/', views.trigger_sos, name='sos-trigger'),
+    path('sos/active/', views.active_sos, name='sos-active'),
+    path('sos/<uuid:pk>/resolve/', views.resolve_sos, name='sos-resolve'),
+    path('sos/<uuid:pk>/cancel/', views.cancel_sos, name='sos-cancel'),
+    path('sos/history/', views.sos_history, name='sos-history'),
 ]

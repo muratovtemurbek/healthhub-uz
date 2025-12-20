@@ -239,3 +239,71 @@ class ChronicCondition(models.Model):
 
     def __str__(self):
         return f"{self.patient} - {self.condition_name}"
+
+class LabTest(models.Model):
+    """Laboratoriya tahlillari"""
+    TEST_TYPES = [
+        ('blood', 'Qon tahlili'),
+        ('urine', 'Siydik tahlili'),
+        ('stool', 'Najas tahlili'),
+        ('xray', 'Rentgen'),
+        ('ultrasound', 'UZI'),
+        ('mri', 'MRT'),
+        ('ct', 'KT'),
+        ('ecg', 'EKG'),
+        ('endoscopy', 'Endoskopiya'),
+        ('biopsy', 'Biopsiya'),
+        ('allergy', 'Allergiya testi'),
+        ('hormone', 'Gormon tahlili'),
+        ('genetic', 'Genetik test'),
+        ('other', 'Boshqa'),
+    ]
+
+    STATUS_CHOICES = [
+        ('booked', 'Bron qilingan'),
+        ('confirmed', 'Tasdiqlangan'),
+        ('in_progress', 'Jarayonda'),
+        ('completed', 'Bajarildi'),
+        ('cancelled', 'Bekor qilindi'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='lab_tests'
+    )
+    hospital = models.ForeignKey(
+        'doctors.Hospital',
+        on_delete=models.CASCADE,
+        related_name='lab_tests'
+    )
+    test_type = models.CharField(max_length=20, choices=TEST_TYPES, verbose_name='Tahlil turi')
+    test_name = models.CharField(max_length=200, verbose_name='Tahlil nomi')
+    description = models.TextField(blank=True, default='', verbose_name='Tavsif')
+    date = models.DateField(verbose_name='Sana')
+    time = models.TimeField(verbose_name='Vaqt')
+    price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Narxi')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='booked')
+    results = models.JSONField(default=dict, blank=True, verbose_name='Natijalar')
+    result_file = models.FileField(upload_to='lab_results/%Y/%m/', null=True, blank=True, verbose_name='Natija fayli')
+    result_summary = models.TextField(blank=True, default='', verbose_name='Natija xulosasi')
+    notes = models.TextField(blank=True, default='', verbose_name='Izoh')
+    doctor_notes = models.TextField(blank=True, default='', verbose_name='Shifokor izohi')
+    is_paid = models.BooleanField(default=False)
+    is_urgent = models.BooleanField(default=False, verbose_name='Shoshilinch')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Laboratoriya tahlili'
+        verbose_name_plural = 'Laboratoriya tahlillari'
+        ordering = ['-date', '-time']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['date', 'hospital']),
+        ]
+
+    def __str__(self):
+        return f"{self.test_name} - {self.user.get_full_name()} ({self.date})"
