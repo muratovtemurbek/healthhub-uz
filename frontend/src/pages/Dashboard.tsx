@@ -6,7 +6,8 @@ import {
   Stethoscope, Pill, FileText, Activity, Wind,
   Heart, Clock, TrendingUp, MapPin, MessageCircle,
   Building2, BarChart3, Flame, AlertCircle, Bot,
-  Brain, Sparkles, Send, Mic
+  Brain, Sparkles, Send, Mic, Users, AlertTriangle,
+  ShoppingBag, FlaskConical
 } from 'lucide-react';
 import apiClient from '../api/client';
 
@@ -55,9 +56,16 @@ const QUICK_ACTIONS = [
   { id: 'doctors', icon: Stethoscope, label: 'Shifokorlar', path: '/doctors', color: 'bg-blue-500' },
   { id: 'medicines', icon: Pill, label: 'Dorilar', path: '/medicine-reminders', color: 'bg-purple-500' },
   { id: 'hospitals', icon: Building2, label: 'Kasalxonalar', path: '/hospitals', color: 'bg-green-500' },
+  { id: 'lab-tests', icon: FlaskConical, label: 'Labaratoriya', path: '/lab-tests', color: 'bg-pink-500' },
+  { id: 'prescription-orders', icon: ShoppingBag, label: 'Dori buyurtma', path: '/prescription-orders', color: 'bg-indigo-500' },
+  { id: 'family', icon: Users, label: 'Oila', path: '/family', color: 'bg-amber-500' },
+];
+
+const MORE_SERVICES = [
   { id: 'documents', icon: FileText, label: 'Hujjatlar', path: '/documents', color: 'bg-teal-500' },
   { id: 'analytics', icon: BarChart3, label: 'Statistika', path: '/analytics', color: 'bg-orange-500' },
   { id: 'air', icon: Wind, label: 'Havo sifati', path: '/air-quality', color: 'bg-cyan-500' },
+  { id: 'emergency', icon: AlertTriangle, label: 'SOS', path: '/emergency-sos', color: 'bg-red-500' },
 ];
 
 // AI Chat Widget Component
@@ -305,6 +313,27 @@ export default function Dashboard() {
                     </Link>
                   );
                 })}
+              </div>
+              {/* More Services */}
+              <div className="mt-4 pt-4 border-t">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Boshqa xizmatlar</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  {MORE_SERVICES.map(action => {
+                    const Icon = action.icon;
+                    return (
+                      <Link
+                        key={action.id}
+                        to={action.path}
+                        className="flex flex-col items-center p-2 rounded-xl hover:bg-gray-50 transition"
+                      >
+                        <div className={`w-10 h-10 ${action.color} rounded-lg flex items-center justify-center mb-1`}>
+                          <Icon className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="text-xs text-gray-600 text-center">{action.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
