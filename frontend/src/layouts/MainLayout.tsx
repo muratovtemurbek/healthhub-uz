@@ -1,5 +1,5 @@
 // src/layouts/MainLayout.tsx
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import { Home, Calendar, Users, User, Pill } from 'lucide-react';
 
 export default function MainLayout() {

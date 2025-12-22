@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
   LayoutDashboard, Calendar, Users, Clock, FileText,
-  User, MessageCircle, Menu, X, LogOut, ChevronRight
+  User, MessageCircle, Menu, X, LogOut
 } from 'lucide-react';
 
 const MENU_ITEMS = [

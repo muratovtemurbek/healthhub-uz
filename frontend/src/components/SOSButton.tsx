@@ -9,19 +9,19 @@ export default function SOSButton() {
   const [hasActiveSOS, setHasActiveSOS] = useState(false);
 
   useEffect(() => {
+    const checkActiveSOS = async () => {
+      try {
+        const response = await api.get('/accounts/sos/active/');
+        if (response.data && response.data.id) {
+          setHasActiveSOS(true);
+        }
+      } catch {
+        setHasActiveSOS(false);
+      }
+    };
+
     checkActiveSOS();
   }, []);
-
-  const checkActiveSOS = async () => {
-    try {
-      const response = await api.get('/accounts/sos/active/');
-      if (response.data && response.data.id) {
-        setHasActiveSOS(true);
-      }
-    } catch {
-      setHasActiveSOS(false);
-    }
-  };
 
   return (
     <button

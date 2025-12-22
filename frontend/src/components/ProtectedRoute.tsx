@@ -15,42 +15,42 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const [userType, setUserType] = useState<string>('');
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    const checkAuth = () => {
+      const token = localStorage.getItem('access');
+      const userStr = localStorage.getItem('user');
 
-  const checkAuth = () => {
-    const token = localStorage.getItem('access');
-    const userStr = localStorage.getItem('user');
+      console.log('ProtectedRoute checking...', {
+        hasToken: !!token,
+        hasUser: !!userStr,
+        path: location.pathname
+      });
 
-    console.log('🔒 ProtectedRoute checking...', {
-      hasToken: !!token,
-      hasUser: !!userStr,
-      path: location.pathname
-    });
+      if (!token || !userStr) {
+        console.log('No token or user');
+        setIsAuthenticated(false);
+        setIsChecking(false);
+        return;
+      }
 
-    if (!token || !userStr) {
-      console.log('❌ No token or user');
-      setIsAuthenticated(false);
+      try {
+        const user = JSON.parse(userStr);
+        const type = user.user_type || 'patient';
+
+        console.log('User found:', { id: user.id, type });
+
+        setUserType(type);
+        setIsAuthenticated(true);
+      } catch {
+        console.log('Invalid user data');
+        localStorage.clear();
+        setIsAuthenticated(false);
+      }
+
       setIsChecking(false);
-      return;
-    }
+    };
 
-    try {
-      const user = JSON.parse(userStr);
-      const type = user.user_type || 'patient';
-
-      console.log('✅ User found:', { id: user.id, type });
-
-      setUserType(type);
-      setIsAuthenticated(true);
-    } catch (e) {
-      console.log('❌ Invalid user data');
-      localStorage.clear();
-      setIsAuthenticated(false);
-    }
-
-    setIsChecking(false);
-  };
+    checkAuth();
+  }, [location.pathname]);
 
   // Loading holati
   if (isChecking) {
